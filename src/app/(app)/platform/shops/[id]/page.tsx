@@ -2,8 +2,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Badge, Card, PageHeader, td, th } from "@/components/ui";
 import { platformGuard } from "@/lib/guard";
-import { formatDate } from "@/lib/time";
+import Link from "next/link";
+import { billingStatus } from "@/lib/billing";
+import { formatMoney } from "@/lib/money";
+import { formatDate, kampalaDateString } from "@/lib/time";
 import { asPlatform } from "@/lib/tenant";
+import { InvoiceActions, NewInvoiceForm, PlanForm } from "./billing-controls";
 import { PasswordReset, ShopDetailsForm, SuspendButton } from "./shop-controls";
 
 export const metadata: Metadata = { title: "Manage shop" };
@@ -14,10 +18,15 @@ export default async function ShopPage({ params }: PageProps<"/platform/shops/[i
   const shop = await asPlatform((tx) =>
     tx.shop.findUnique({
       where: { id },
-      include: { users: { orderBy: [{ role: "asc" }, { name: "asc" }] }, _count: { select: { products: true, sales: true, categories: true } } },
+      include: {
+        users: { orderBy: [{ role: "asc" }, { name: "asc" }] }, _count: { select: { products: true, sales: true, categories: true } },
+        invoices: { orderBy: { issuedAt: "desc" }, take: 50 },
+      },
     }),
   );
   if (!shop) notFound();
+  const info = billingStatus(shop);
+  const today = kampalaDateString();
   return (
     <>
       <PageHeader title={shop.name} subtitle={`Created ${formatDate(shop.createdAt)} · ${shop._count.products} products · ${shop._count.sales} sales · ${shop._count.categories} categories`}
@@ -42,6 +51,38 @@ export default async function ShopPage({ params }: PageProps<"/platform/shops/[i
           </table>
         </Card>
       </div>
+
+      <h2 id="billing" className="mb-2 mt-8 scroll-mt-4 text-lg font-semibold">Billing</h2>
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <Card className="p-5">
+          <div className="mb-3 flex flex-wrap items-center gap-2"><h3 className="font-semibold">Plan</h3><Badge tone={info.tone}>{info.label}</Badge>{shop.paidUntil && <span className="text-xs text-slate-500">covered until {formatDate(shop.paidUntil)}</span>}</div>
+          <PlanForm shopId={shop.id} currency={shop.currency}
+            plan={{ planName: shop.planName, monthlyPrice: shop.monthlyPrice, maxUsers: shop.maxUsers, trialEndsAt: shop.trialEndsAt ? kampalaDateString(shop.trialEndsAt) : "", billingNote: shop.billingNote ?? "" }} />
+        </Card>
+        <Card className="p-5">
+          <h3 className="mb-3 font-semibold">New invoice</h3>
+          <NewInvoiceForm shopId={shop.id} monthlyPrice={shop.monthlyPrice} currency={shop.currency} />
+          <p className="mt-3 text-xs text-slate-500">The invoice covers the next period not yet billed. Recording its payment extends the shop&apos;s cover automatically.</p>
+        </Card>
+      </div>
+      <Card className="mt-4 overflow-x-auto">
+        <h3 className="px-5 pt-5 font-semibold">Invoices</h3>
+        <table className="mt-2 w-full min-w-[760px]">
+          <thead className="border-b border-slate-200 bg-slate-50"><tr><th className={th}>Number</th><th className={th}>Period</th><th className={`${th} text-right`}>Amount</th><th className={th}>Status</th><th className={th}>Actions</th></tr></thead>
+          <tbody className="divide-y divide-slate-100">
+            {shop.invoices.map((i) => (
+              <tr key={i.id} className="align-top">
+                <td className={td}><Link href={`/platform/invoices/${i.id}`} className="font-medium text-brand-600 hover:underline">{i.number}</Link><div className="text-xs text-slate-500">issued {formatDate(i.issuedAt)}</div></td>
+                <td className={`${td} whitespace-nowrap`}>{formatDate(i.periodStart)} – {formatDate(i.periodEnd)}</td>
+                <td className={`${td} text-right tabular-nums`}>{formatMoney(i.amount, i.currency)}</td>
+                <td className={td}>{i.status === "PAID" ? <><Badge tone="green">Paid</Badge><div className="mt-1 text-xs text-slate-500">{i.paymentMethod}{i.paymentReference ? ` · ${i.paymentReference}` : ""}{i.paidAt ? ` · ${formatDate(i.paidAt)}` : ""}</div></> : i.status === "VOID" ? <Badge>Cancelled</Badge> : <><Badge tone="amber">Unpaid</Badge><div className="mt-1 text-xs text-slate-500">due {formatDate(i.dueDate)}</div></>}</td>
+                <td className={td}>{i.status === "UNPAID" ? <InvoiceActions invoiceId={i.id} shopId={shop.id} today={today} /> : <Link href={`/platform/invoices/${i.id}`} className="text-sm text-slate-500 hover:underline">View / print</Link>}</td>
+              </tr>
+            ))}
+            {shop.invoices.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">No invoices yet.</td></tr>}
+          </tbody>
+        </table>
+      </Card>
     </>
   );
 }

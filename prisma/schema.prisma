@@ -17,7 +17,7 @@ datasource db {
 
 enum Role {
   PLATFORM_OWNER // runs the platform: creates shops and their first admin. Belongs to no shop.
-  ADMIN          // a shop's administrator: manages that shop's staff, settings and everything else in it
+  ADMIN // a shop's administrator: manages that shop's staff, settings and everything else in it
   MANAGER
   CASHIER
 }
@@ -65,6 +65,15 @@ model Shop {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
+  // Billing (managed only by the platform owner; see src/lib/billing.ts)
+  planName     String    @default("Trial")
+  monthlyPrice Int       @default(0) // in this shop's currency; 0 = free / not yet priced
+  maxUsers     Int       @default(10) // active staff accounts allowed
+  trialEndsAt  DateTime?
+  paidUntil    DateTime? // the shop is covered up to (and including) this moment
+  billingNote  String?
+
+  invoices           Invoice[]
   users              User[]
   categories         Category[]
   products           Product[]
@@ -355,4 +364,48 @@ model AuthToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, purpose])
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PAID
+  VOID
+}
+
+// Invoices are written by the platform owner (by hand, after agreeing a plan) and read by the shop's administrators.
+model Invoice {
+  id               String        @id @default(cuid())
+  shopId           String
+  number           String        @unique // INV-2026-0001
+  description      String
+  periodStart      DateTime
+  periodEnd        DateTime
+  amount           Int
+  currency         String
+  status           InvoiceStatus @default(UNPAID)
+  issuedAt         DateTime      @default(now())
+  dueDate          DateTime
+  paidAt           DateTime?
+  paymentMethod    String?
+  paymentReference String?
+  notes            String?
+  createdAt        DateTime      @default(now())
+
+  shop Shop @relation(fields: [shopId], references: [id])
+
+  @@index([shopId, issuedAt])
+  @@index([status, dueDate])
+}
+
+// One row (id "main"): who invoices are from and how to pay. Platform-owner only.
+model PlatformSettings {
+  id                  String @id @default("main")
+  businessName        String @default("")
+  address             String @default("")
+  phone               String @default("")
+  email               String @default("")
+  paymentInstructions String @default("")
+  invoiceFooter       String @default("")
+  trialDays           Int    @default(30)
+  nextInvoiceNo       Int    @default(1)
 }

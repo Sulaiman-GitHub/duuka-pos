@@ -150,6 +150,10 @@ The point-of-sale screen keeps working with no internet, on phones and PCs (it i
 - **Scope:** selling is fully offline-capable. Dashboard, sales/receipts, products, inventory and reports open offline from the last copy viewed (with an "offline, may be out of date" banner). Users, settings, audit and platform pages are never saved and need a connection; nothing can be changed offline except selling. Saved page copies are cleared when the sign-in page is shown.
 - **Printing:** receipts are plain data (`ReceiptData`) rendered by one component laid out for 58/80 mm rolls, or turned into ESC/POS bytes (`src/lib/printing/escpos.ts`) for direct USB/Bluetooth printing; see [PRINTERS.md](PRINTERS.md).
 
+## Billing
+
+Subscriptions are invoiced manually by the platform owner (see [BILLING.md](BILLING.md)). A shop has a plan (`planName`, `monthlyPrice`, `maxUsers`) and is *covered* until `paidUntil` (or `trialEndsAt` while on trial); `billingStatus()` turns that into Trial / Paid / Due soon / Overdue. `createInvoice` bills the next unbilled period (after paid cover, a running trial and earlier unpaid invoices), numbers invoices from an atomic counter, and `markInvoicePaid` is a conditional update so a double click or two people at once records one payment and extends cover to the end of the invoice period (never shortening it). Invoices can be **read** by their own shop but **written only at platform level** (separate row-level-security policies); platform settings are platform-only. Overdue shops are flagged, never locked out automatically.
+
 ## Time zones
 
 The shop operates in Uganda (UTC+3, no daylight saving) but servers run in UTC. Day boundaries for "today", reports,
@@ -182,7 +186,7 @@ no persistent disk.
 
 ## Testing
 
-`npm test` runs **107 tests** (Vitest).
+`npm test` runs **123 tests** (Vitest).
 
 | Suite | Covers |
 |---|---|

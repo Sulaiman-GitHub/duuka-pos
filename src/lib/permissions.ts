@@ -14,7 +14,8 @@ export type ShopPermission =
   | "suppliers.manage"
   | "users.manage"
   | "settings.manage"
-  | "audit.view";
+  | "audit.view"
+  | "billing.view";
 
 /** Permissions of the platform owner, who runs the platform but works in no shop. */
 export type PlatformPermission = "platform.manage";
@@ -24,7 +25,7 @@ export type Permission = ShopPermission | PlatformPermission;
 const SHOP_ALL: ShopPermission[] = [
   "pos.sell", "sales.view", "sales.viewAll", "sales.refund", "products.manage",
   "inventory.view", "inventory.adjust", "reports.view", "dashboard.view",
-  "suppliers.manage", "users.manage", "settings.manage", "audit.view",
+  "suppliers.manage", "users.manage", "settings.manage", "audit.view", "billing.view",
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {

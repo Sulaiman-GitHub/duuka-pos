@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { audit } from "@/lib/audit";
+import { assertCanAddUser, PlanLimitError } from "@/lib/billing";
 import { getSettings } from "@/lib/settings";
 import { issueLink } from "@/lib/tokens";
 import { STAFF_ROLES } from "@/lib/permissions";
@@ -37,12 +38,14 @@ export async function createUser(_p: UserFormState, fd: FormData): Promise<UserF
   let userId: string;
   try {
     userId = await withShop(me.shopId, async (tx) => {
+      await assertCanAddUser(tx, me.shopId);
       const u = await tx.user.create({ data: { shopId: me.shopId, name: parsed.data.name, email: parsed.data.email, role: parsed.data.role, passwordHash } });
       await audit(tx, me.shopId, me.id, invite ? "user.invite" : "user.create", "User", u.id, `${u.email} (${u.role})`);
       return u.id;
     });
   } catch (e) {
     if ((e as { code?: string }).code === "P2002") return { error: "That email address is already in use.", values };
+    if (e instanceof PlanLimitError) return { error: e.message, values };
     throw e;
   }
   revalidatePath("/users");
@@ -72,6 +75,11 @@ export async function updateUser(id: string, _p: UserFormState, fd: FormData): P
   const problem = await withShop(me.shopId, async (tx) => {
     const p = await guardAdminLoss(tx, me.id, id, parsed.data.role, isActive);
     if (p) return p;
+    // Switching an inactive account back on uses up a seat, so the plan's limit applies.
+    const before = await tx.user.findUnique({ where: { id }, select: { isActive: true } });
+    if (isActive && before && !before.isActive) {
+      try { await assertCanAddUser(tx, me.shopId); } catch (e) { if (e instanceof PlanLimitError) return e.message; throw e; }
+    }
     // Other shops' users are invisible here, so this only ever updates a member of this shop.
     const r = await tx.user.updateMany({ where: { id }, data: { name: parsed.data.name, role: parsed.data.role, isActive } });
     if (r.count === 0) return "User not found.";

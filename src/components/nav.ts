@@ -2,6 +2,7 @@ import type { Permission } from "@/lib/permissions";
 
 export const NAV: { href: string; label: string; perm: Permission; icon: string }[] = [
   { href: "/platform", label: "Shops", perm: "platform.manage", icon: "Store" },
+  { href: "/platform/billing", label: "Billing", perm: "platform.manage", icon: "CreditCard" },
   { href: "/dashboard", label: "Dashboard", perm: "dashboard.view", icon: "LayoutDashboard" },
   { href: "/pos", label: "Point of Sale", perm: "pos.sell", icon: "ShoppingCart" },
   { href: "/sales", label: "Sales", perm: "sales.view", icon: "Receipt" },
@@ -11,5 +12,6 @@ export const NAV: { href: string; label: string; perm: Permission; icon: string 
   { href: "/reports", label: "Reports", perm: "reports.view", icon: "BarChart3" },
   { href: "/users", label: "Users", perm: "users.manage", icon: "Users" },
   { href: "/audit", label: "Activity log", perm: "audit.view", icon: "History" },
+  { href: "/billing", label: "Billing", perm: "billing.view", icon: "CreditCard" },
   { href: "/settings", label: "Settings", perm: "settings.manage", icon: "Settings" },
 ];

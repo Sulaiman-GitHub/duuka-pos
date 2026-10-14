@@ -16,7 +16,7 @@ export async function dbAvailable() {
 
 export async function resetDb() {
   await rawDb.$executeRawUnsafe(
-    'TRUNCATE TABLE "SaleReturnItem","SaleReturn","SaleItem","Sale","StockMovement","PurchaseOrderItem","PurchaseOrder","Supplier","Product","Category","AuditLog","ReceiptCounter","User","Shop" RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE "SaleReturnItem","SaleReturn","SaleItem","Sale","StockMovement","PurchaseOrderItem","PurchaseOrder","Supplier","Product","Category","AuditLog","ReceiptCounter","Invoice","PlatformSettings","AuthToken","User","Shop" RESTART IDENTITY CASCADE',
   );
 }
 

@@ -51,7 +51,7 @@ async function main() {
       await tx.user.create({ data: { name: "Platform Owner", email: "owner@duuka.test", passwordHash: hash("Owner@123"), role: "PLATFORM_OWNER" } });
 
       // ------------------------------------------------------------------ Shop 1: Duuka Mart (mini-supermarket)
-      const mart = await tx.shop.create({ data: { name: "Duuka Mart", address: "Kansanga, Kampala, Uganda", phone: "+256 700 000 000" } });
+      const mart = await tx.shop.create({ data: { name: "Duuka Mart", address: "Kansanga, Kampala, Uganda", phone: "+256 700 000 000", planName: "Standard", monthlyPrice: 30000, maxUsers: 10, paidUntil: new Date(Date.now() + 18 * 86_400_000) } });
       const martStaff: { name: string; email: string; password: string; role: Role }[] = [
         { name: "Admin User", email: "admin@pos.test", password: "Admin@123", role: "ADMIN" },
         { name: "Mary Manager", email: "manager@pos.test", password: "Manager@123", role: "MANAGER" },
@@ -104,7 +104,7 @@ async function main() {
       });
 
       // ------------------------------------------------------------------ Shop 2: Kampala Electronics
-      const shop2 = await tx.shop.create({ data: { name: "Kampala Electronics", address: "Nakasero Market, Kampala", phone: "+256 700 000 111", cashierMaxDiscountPercent: 5 } });
+      const shop2 = await tx.shop.create({ data: { name: "Kampala Electronics", address: "Nakasero Market, Kampala", phone: "+256 700 000 111", cashierMaxDiscountPercent: 5, planName: "Trial", trialEndsAt: new Date(Date.now() + 4 * 86_400_000), monthlyPrice: 30000 } });
       const s2Users = await Promise.all(
         [
           { name: "Esther Owner", email: "admin@electronics.test", role: "ADMIN" as Role },

@@ -1,14 +1,14 @@
 "use client";
 
 import clsx from "clsx";
-import { BarChart3, Boxes, History, LayoutDashboard, LogOut, Menu, Package, Receipt, Settings, ShoppingCart, Store, Truck, Users, X } from "lucide-react";
+import { BarChart3, Boxes, CreditCard, History, LayoutDashboard, LogOut, Menu, Package, Receipt, Settings, ShoppingCart, Store, Truck, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { logout } from "@/app/login/actions";
 import { InstallButton } from "@/components/install-button";
 
-const icons = { LayoutDashboard, ShoppingCart, Receipt, Package, Boxes, Truck, BarChart3, Users, History, Settings, Store };
+const icons = { CreditCard, LayoutDashboard, ShoppingCart, Receipt, Package, Boxes, Truck, BarChart3, Users, History, Settings, Store };
 
 export function Sidebar({ items, user, shopName }: { items: { href: string; label: string; icon: string }[]; user: { name: string; role: string }; shopName?: string | null }) {
   const pathname = usePathname();
