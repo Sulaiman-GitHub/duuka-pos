@@ -11,6 +11,8 @@ const csp = [
   "img-src 'self' data: blob:",
   "font-src 'self'",
   `connect-src 'self'${isDev ? " ws:" : ""}`,
+  "worker-src 'self'",
+  "manifest-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -21,6 +23,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   async headers() {
     return [
+      // The service worker must always be re-checked so a fix reaches every till quickly.
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }, { key: "Service-Worker-Allowed", value: "/" }] },
       {
         source: "/:path*",
         headers: [

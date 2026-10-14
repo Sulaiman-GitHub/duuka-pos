@@ -8,6 +8,7 @@ import { pageGuard } from "@/lib/guard";
 import { moneyFor } from "@/lib/money";
 import { can } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/time";
+import { MarkReviewed } from "./mark-reviewed";
 import { PrintButton } from "./print-button";
 
 export const metadata: Metadata = { title: "Receipt" };
@@ -34,6 +35,12 @@ export default async function ReceiptPage({ params, searchParams }: PageProps<"/
     <div className="mx-auto max-w-md">
       <div className="no-print mb-4 flex flex-wrap items-center gap-2">
         {sp.new && <div className="basis-full"><Alert tone="success">Sale completed successfully.</Alert></div>}
+        {sale.needsReview && (
+          <div className="basis-full"><Alert>
+            <strong>Made offline — needs a manager&apos;s review.</strong> {sale.reviewNote}
+            {can(user.role, "sales.refund") && <div className="mt-2"><MarkReviewed id={sale.id} /></div>}
+          </Alert></div>
+        )}
         <PrintButton />
         {can(user.role, "pos.sell") && <Link href="/pos" className="inline-flex items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">New sale</Link>}
         {can(user.role, "sales.refund") && sale.status !== "REFUNDED" && <Link href={`/sales/${sale.id}/return`} className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Return / refund</Link>}
@@ -49,6 +56,7 @@ export default async function ReceiptPage({ params, searchParams }: PageProps<"/
         <div className="my-4 space-y-0.5 border-y border-dashed border-slate-300 py-3 text-xs">
           <div className="flex justify-between"><span>Receipt</span><span className="font-semibold">{sale.receiptNo}</span></div>
           <div className="flex justify-between"><span>Date</span><span>{formatDateTime(sale.createdAt)}</span></div>
+          {sale.offlineAt && <div className="flex justify-between"><span>Made offline</span><span>uploaded later</span></div>}
           <div className="flex justify-between"><span>Cashier</span><span>{sale.cashier.name}</span></div>
           {sale.customerName && <div className="flex justify-between"><span>Customer</span><span>{sale.customerName}</span></div>}
           {sale.status !== "COMPLETED" && <div className="pt-1"><Badge tone="amber">{sale.status === "REFUNDED" ? "Fully refunded" : "Partially refunded"}</Badge></div>}

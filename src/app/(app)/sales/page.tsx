@@ -78,7 +78,7 @@ export default async function SalesPage({ searchParams }: PageProps<"/sales">) {
           <tbody className="divide-y divide-slate-100">
             {sales.map((s) => (
               <tr key={s.id} className="hover:bg-slate-50">
-                <td className={td}><Link href={`/sales/${s.id}`} className="font-medium text-brand-600 hover:underline">{s.receiptNo}</Link>{s.customerName && <div className="text-xs text-slate-500">{s.customerName}</div>}</td>
+                <td className={td}><Link href={`/sales/${s.id}`} className="font-medium text-brand-600 hover:underline">{s.receiptNo}</Link>{s.customerName && <div className="text-xs text-slate-500">{s.customerName}</div>}{s.needsReview && <div><Badge tone="amber">Needs review</Badge></div>}</td>
                 <td className={`${td} whitespace-nowrap`}>{formatDateTime(s.createdAt)}</td>
                 <td className={td}>{s.cashier.name}</td>
                 <td className={tdNum}>{s._count.items}</td>

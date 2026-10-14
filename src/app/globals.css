@@ -21,6 +21,10 @@ body {
 @media print {
   .no-print { display: none !important; }
   body { background: #fff; }
+  /* Printing the on-device receipt: show only the receipt, whatever else is on screen. */
+  body:has(.receipt-print) * { visibility: hidden; }
+  .receipt-print, .receipt-print * { visibility: visible; }
+  .receipt-print { position: absolute; left: 0; top: 0; width: 100%; }
 }
 
 /* Data-viz tokens (single-series charts use slot 1 of the reference palette). */

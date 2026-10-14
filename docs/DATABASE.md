@@ -143,6 +143,7 @@ user with no shop (`role = PLATFORM_OWNER` ⇔ `shopId IS NULL`, enforced by a C
 | `Product` | Items for sale | Unique `sku` and `barcode` per shop; `isActive` for soft removal; image stored as `bytea` |
 | `StockMovement` | **Stock ledger** — one row per stock change | Signed `quantity`, `stockAfter` balance, `reference` (receipt / PO number); indexed by `(productId, createdAt)` |
 | `Sale` | One completed transaction | Unique `receiptNo` per shop; `status` moves to partially/fully refunded; indexed by date, cashier and payment method |
+| `Sale` (offline fields) | `clientId` (unique per shop), `offlineAt`, `needsReview`, `reviewNote` | Make uploads idempotent and flag offline sales that needed server-side adjustment |
 | `SaleItem` | Lines of a sale | **Snapshots** name, SKU, unit price and unit cost so history never changes when a product is edited |
 | `SaleReturn` / `SaleReturnItem` | Refunds against a sale | A sale can have several returns; refunds sum to at most the amount paid |
 | `Supplier` | Who stock is bought from | Soft-deactivated, never deleted |

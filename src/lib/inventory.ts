@@ -14,15 +14,16 @@ export async function applyStockChange(
   productId: string,
   delta: number,
   type: StockMovementType,
-  opts: { userId?: string | null; reason?: string | null; reference?: string | null; allowInactive?: boolean } = {},
+  opts: { userId?: string | null; reason?: string | null; reference?: string | null; allowInactive?: boolean; allowNegative?: boolean } = {},
 ) {
   if (!Number.isInteger(delta) || delta === 0) throw new StockError("Quantity must be a non-zero whole number.");
 
   const updated = await tx.product.updateMany({
     where: {
       id: productId,
-      ...(opts.allowInactive ? {} : delta < 0 ? { isActive: true } : {}),
-      ...(delta < 0 ? { stock: { gte: -delta } } : {}),
+      ...(opts.allowInactive || opts.allowNegative ? {} : delta < 0 ? { isActive: true } : {}),
+      // allowNegative is for sales that already happened (made offline): the goods are gone, so the count must follow.
+      ...(delta < 0 && !opts.allowNegative ? { stock: { gte: -delta } } : {}),
     },
     data: { stock: { increment: delta } },
   });

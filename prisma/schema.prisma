@@ -183,6 +183,14 @@ model Sale {
   status        SaleStatus    @default(COMPLETED)
   note          String?
   createdAt     DateTime      @default(now())
+  // Set by the till: a unique id per sale so a retried or late-synced sale is never recorded twice.
+  clientId      String?
+  // When the sale happened on the device, if it was made offline and uploaded later.
+  offlineAt     DateTime?
+  // Offline sales are always accepted (the goods already left the shop) but are flagged for a manager when the server
+  // had to deviate from what the till showed: stock went negative, a price changed, a discount exceeded the limit.
+  needsReview   Boolean       @default(false)
+  reviewNote    String?
 
   shop    Shop         @relation(fields: [shopId], references: [id])
   cashier User         @relation(fields: [cashierId], references: [id])
@@ -190,6 +198,7 @@ model Sale {
   returns SaleReturn[]
 
   @@unique([shopId, receiptNo])
+  @@unique([shopId, clientId])
   @@index([shopId, createdAt])
   @@index([shopId, cashierId, createdAt])
   @@index([shopId, paymentMethod])

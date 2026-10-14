@@ -6,10 +6,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Alert, Button, inputCls } from "@/components/ui";
 import { useCurrency, useMoney } from "@/components/currency";
-import { completeSale } from "./actions";
+import type { LocalReceipt, PosCatalog, PosProduct, QueuedSale, SalePayload } from "@/lib/offline/types";
+import { queueSale } from "@/lib/offline/store";
+import { LocalReceiptModal, TillStatus } from "./till-status";
+import { useTill } from "./use-till";
 import { useHeldSales, type HeldSale } from "./held";
 
-type Product = { id: string; name: string; sku: string; barcode: string | null; sellPrice: number; stock: number; categoryId: string | null; hasImage: boolean };
+type Product = PosProduct;
 type Method = "CASH" | "MOBILE_MONEY" | "CARD" | "BANK_TRANSFER";
 
 const METHODS: { key: Method; label: string }[] = [
@@ -19,9 +22,12 @@ const METHODS: { key: Method; label: string }[] = [
   { key: "BANK_TRANSFER", label: "Bank transfer" },
 ];
 
-export function PosTerminal({ products, categories, maxDiscountPercent }: { products: Product[]; categories: { id: string; name: string }[]; maxDiscountPercent: number }) {
+export function PosTerminal({ initial }: { initial: PosCatalog }) {
   const money = useMoney();
   const currency = useCurrency();
+  const { catalog, products, online, setOnline, queue, reloadQueue, sync, refreshCatalog, signedOut, lastSync, discard, retry } = useTill(initial);
+  const { categories, maxDiscountPercent } = catalog;
+  const [localReceipt, setLocalReceipt] = useState<{ ref: string; receipt: LocalReceipt; at: string }>();
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -105,13 +111,44 @@ export function PosTerminal({ products, categories, maxDiscountPercent }: { prod
   function pay() {
     setError(undefined);
     start(async () => {
-      const r = await completeSale({
-        items: lines.map((l) => ({ productId: l.p.id, quantity: l.quantity })),
+      const clientId = newClientId();
+      const base = {
+        clientId, items: lines.map((l) => ({ productId: l.p.id, quantity: l.quantity })),
         discountType, discountValue: dv, paymentMethod: method, amountPaid: paid,
         customerName: customerName || undefined, customerPhone: customerPhone || undefined, reference: reference || undefined,
-      });
-      if (r.error) setError(r.error);
-      else if (r.saleId) router.push(`/sales/${r.saleId}?new=1`);
+      };
+      // Online: record it on the server right away, exactly like before, with live stock and price checks.
+      if (online) {
+        try {
+          const res = await fetch("/api/sync/sales", {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sales: [{ ...base, mode: "live" }] }),
+            signal: AbortSignal.timeout(8000), redirect: "error",
+          });
+          if (res.ok) {
+            const r = (await res.json()).results[0] as { error?: string; saleId?: string };
+            if (r.error) return setError(r.error);
+            if (r.saleId) { void sync(); return router.push(`/sales/${r.saleId}?new=1`); }
+          }
+          // Not signed in / server trouble: fall through and keep the sale safe on this device instead.
+        } catch { setOnline(false); }
+      }
+      // Offline (or the connection dropped mid-sale): keep the sale on this device and upload it later. If the server
+      // did record it before the connection dropped, the same clientId makes the later upload a harmless duplicate.
+      const at = new Date().toISOString();
+      const payload: SalePayload = {
+        ...base, mode: "offline", cashierId: catalog.userId, offlineAt: at, catalogAt: catalog.generatedAt, expectedTotal: total,
+        prices: Object.fromEntries(lines.map((l) => [l.p.id, l.p.sellPrice])),
+      };
+      const receipt: LocalReceipt = {
+        lines: lines.map((l) => ({ name: l.p.name, quantity: l.quantity, unitPrice: l.p.sellPrice })),
+        subtotal, discount, total, paid, change, methodLabel: METHODS.find((m) => m.key === method)!.label, cashierName: catalog.userName, customerName: customerName || undefined,
+      };
+      const queued: QueuedSale = { clientId, shopId: catalog.shopId, status: "pending", createdAt: at, attempts: 0, payload, receipt };
+      try { await queueSale(queued); } catch { return setError("This device couldn't save the sale (storage is blocked or full). Write it down and enter it when you are back online."); }
+      await reloadQueue();
+      setLocalReceipt({ ref: `OFF-${clientId.slice(0, 6).toUpperCase()}`, receipt, at });
+      clearAll();
+      void refreshCatalog();
     });
   }
 
@@ -127,6 +164,8 @@ export function PosTerminal({ products, categories, maxDiscountPercent }: { prod
   const quick = total > 0 ? [...new Set([total, Math.ceil(total / 1000) * 1000, Math.ceil(total / 5000) * 5000, Math.ceil(total / 10000) * 10000, Math.ceil(total / 50000) * 50000])].slice(0, 4) : [];
 
   return (
+    <>
+    <TillStatus online={online} queue={queue} catalog={catalog} signedOut={signedOut} lastSync={lastSync} onSync={sync} onDiscard={discard} onRetry={retry} />
     <div className="grid gap-4 pb-20 xl:grid-cols-[1fr_26rem] xl:pb-0">
       <section className="min-w-0">
         <div className="relative mb-3">
@@ -254,5 +293,13 @@ export function PosTerminal({ products, categories, maxDiscountPercent }: { prod
         </div>
       )}
     </div>
+    {localReceipt && <LocalReceiptModal refNo={localReceipt.ref} receipt={localReceipt.receipt} catalog={catalog} at={localReceipt.at} onClose={() => setLocalReceipt(undefined)} />}
+    </>
   );
+}
+
+// crypto.randomUUID needs a secure page (https or localhost); fall back for old devices.
+function newClientId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}-${Math.random().toString(36).slice(2, 12)}`;
 }

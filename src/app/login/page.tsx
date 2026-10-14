@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Alert } from "@/components/ui";
 import { getUser } from "@/lib/session";
+import { ClearPageCache } from "@/components/clear-page-cache";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -19,6 +20,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           <p className="text-sm text-slate-500">Sign in to continue</p>
         </div>
         {done && <div className="mb-4"><Alert tone="success">Password saved. You can sign in now.</Alert></div>}
+        <ClearPageCache />
         <LoginForm next={typeof next === "string" ? next : undefined} />
         <p className="mt-4 text-center text-sm"><Link href="/forgot-password" className="text-slate-500 hover:text-brand-600 hover:underline">Forgot your password?</Link></p>
       </div>

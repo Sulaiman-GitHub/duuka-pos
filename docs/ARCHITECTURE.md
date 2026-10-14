@@ -136,6 +136,19 @@ cross-shop path. Rules: one email belongs to exactly one shop (globally unique);
 their first administrator; shop administrators manage their own staff; suspended shops cannot sign in.
 `tests/integration/tenant-isolation.test.ts` attacks these boundaries (reads, writes, forged `shopId`, missing context).
 
+## Offline-first till
+
+The point-of-sale screen keeps working with no internet, on phones and PCs (it is an installable web app, so no app store is needed).
+
+- **What is stored on the device:** the shop's products, prices, categories and receipt details (IndexedDB), and a queue of sales waiting to upload. A service worker (`public/sw.js`) keeps the till page and its scripts so it opens offline; it never caches `/api` data.
+- **Selling offline:** a sale is saved to the queue with a unique `clientId` and a provisional receipt is shown/printed from local data. When the connection returns (checked by a heartbeat, and by the browser's online event) the queue uploads automatically to `POST /api/sync/sales`, oldest first, each sale in its own transaction.
+- **Safe to repeat:** `(shopId, clientId)` is unique, so a retry, a lost response, or two tabs uploading at once records the sale once. Even a "live" sale whose reply was lost is later reported as a duplicate, not recorded twice.
+- **Online sales** use the same endpoint in `live` mode with the original strict rules (live price, no overselling, discount limit).
+- **Offline sales are always accepted** because the goods already left the shop. Anything the server would have refused is recorded and **flagged for review** (`Sale.needsReview` + `reviewNote`, shown to managers with a "Mark as reviewed" button): stock gone negative, a discount above the cashier limit, an item deactivated meanwhile, or a total that differs from what the till charged. The price the till showed is honoured only if the product could really have changed after the till last synced; otherwise the database price is used and the sale is flagged.
+- **Receipt numbers:** offline sales get a provisional `OFF-…` reference; the real, sequential receipt number is assigned when the sale uploads.
+- **Identity:** the sale is credited to the cashier who rang it up; only a manager or admin can upload another person's sales. Queued sales stay on the device until they reach the server (signing out does not delete them), and an expired sign-in only pauses the upload.
+- **Scope:** selling is offline-capable; reports, inventory screens, user management and the platform console need a connection.
+
 ## Time zones
 
 The shop operates in Uganda (UTC+3, no daylight saving) but servers run in UTC. Day boundaries for "today", reports,
@@ -168,7 +181,7 @@ no persistent disk.
 
 ## Testing
 
-`npm test` runs **93 tests** (Vitest).
+`npm test` runs **103 tests** (Vitest).
 
 | Suite | Covers |
 |---|---|
