@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "tsx scripts/predeploy.ts && next build",
     "start": "next start",
+    "build:app": "next build",
+    "start:render": "tsx scripts/predeploy.ts && next start -p ${PORT:-10000}",
     "lint": "eslint",
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate deploy",
