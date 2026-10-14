@@ -1,12 +1,9 @@
 # Render Blueprint: one web service + one Postgres database, created together.
-# Free plan notes: the web service sleeps after ~15 min idle (first request then takes ~1 min), and the free database
+# Free plan notes: the web service sleeps after ~15 min idle (first request then takes ~1 min), and a free Render database
 # expires after 30 days. Fine for testing; switch both plans to "starter" or higher before real shops use it.
-databases:
-  - name: duuka-db
-    plan: free
-    databaseName: duuka
-    user: duuka
-    region: frankfurt
+# NOTE: no database is declared here on purpose. Render allows only one free Postgres per account, so this blueprint
+# expects DATABASE_URL to be supplied (a new Neon database, or a Render Postgres on a paid plan). Never point it at a
+# database that another application uses.
 
 services:
   - type: web
@@ -22,7 +19,7 @@ services:
       - key: NODE_VERSION
         value: "22"
       - key: DATABASE_URL
-        fromDatabase: { name: duuka-db, property: connectionString }
+        sync: false
       - key: SESSION_SECRET
         generateValue: true
       - key: PLATFORM_OWNER_EMAIL
