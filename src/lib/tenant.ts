@@ -18,8 +18,8 @@ const TX_OPTIONS = { maxWait: 10_000, timeout: 30_000 };
 export function withShop<T>(shopId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
   if (!shopId) throw new Error("withShop requires a shop id");
   return rawDb.$transaction(async (tx) => {
-    await tx.$executeRaw`SET LOCAL ROLE duuka_app`;
-    await tx.$queryRaw`SELECT set_config('app.shop_id', ${shopId}, true)`;
+    // One round trip instead of two: set_config('role', …, true) is the same as SET LOCAL ROLE.
+    await tx.$queryRaw`SELECT set_config('role', 'duuka_app', true), set_config('app.shop_id', ${shopId}, true)`;
     return fn(tx);
   }, TX_OPTIONS);
 }
@@ -30,8 +30,7 @@ export function withShop<T>(shopId: string, fn: (tx: Tx) => Promise<T>): Promise
  */
 export function asPlatform<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
   return rawDb.$transaction(async (tx) => {
-    await tx.$executeRaw`SET LOCAL ROLE duuka_app`;
-    await tx.$queryRaw`SELECT set_config('app.platform', 'on', true)`;
+    await tx.$queryRaw`SELECT set_config('role', 'duuka_app', true), set_config('app.platform', 'on', true)`;
     return fn(tx);
   }, TX_OPTIONS);
 }
