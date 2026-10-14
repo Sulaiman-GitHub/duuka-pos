@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Button, Card, PageHeader, inputCls, td, tdNum, th } from "@/components/ui";
-import { db } from "@/lib/db";
+import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { can } from "@/lib/permissions";
 import { formatDateTime, parseKampalaDate, addDays } from "@/lib/time";
@@ -30,13 +30,13 @@ export default async function HistoryPage({ searchParams }: PageProps<"/inventor
     ...(type && { type }),
     ...((from || to) && { createdAt: { ...(from && { gte: from }), ...(to && { lt: addDays(to, 1) }) } }),
   };
-  const [rows, total] = await Promise.all([
+  const [rows, total] = await withShop(user.shopId, (db) => Promise.all([
     db.stockMovement.findMany({
       where, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE,
       include: { product: { select: { name: true, sku: true } }, user: { select: { name: true } } },
     }),
     db.stockMovement.count({ where }),
-  ]);
+  ]));
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const qs = (p: number) => new URLSearchParams({ ...(q && { q }), ...(type && { type }), ...(sp.from && { from: String(sp.from) }), ...(sp.to && { to: String(sp.to) }), page: String(p) }).toString();
 

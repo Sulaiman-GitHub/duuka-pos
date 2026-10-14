@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Badge, Card, PageHeader, StatTile, td, tdNum, th } from "@/components/ui";
 import { BarList, TrendChart } from "@/components/charts";
 import { bestSellers, groupByGrain, lowStockCounts, saleFacts, sumFacts, net } from "@/lib/analytics";
-import { db } from "@/lib/db";
+import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { formatNumber, formatUGX } from "@/lib/money";
 import { addDays, startOfKampalaDay } from "@/lib/time";
@@ -14,7 +14,7 @@ const RANGES = [{ days: 7, label: "Last 7 days" }, { days: 30, label: "Last 30 d
 const METHOD_LABEL: Record<string, string> = { CASH: "Cash", MOBILE_MONEY: "Mobile Money", CARD: "Card", BANK_TRANSFER: "Bank transfer" };
 
 export default async function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
-  await pageGuard("dashboard.view");
+  const user = await pageGuard("dashboard.view");
   const sp = await searchParams;
   const days = RANGES.some((r) => r.days === Number(sp.range)) ? Number(sp.range) : 30;
 
@@ -22,13 +22,13 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const tomorrow = addDays(today, 1);
   const from = addDays(today, -(days - 1));
 
-  const [facts, stock, top, lowRows] = await Promise.all([
-    saleFacts(addDays(today, -Math.max(days - 1, 1)), tomorrow), // covers the range and yesterday
-    lowStockCounts(),
-    bestSellers(from, tomorrow, 8),
+  const [facts, stock, top, lowRows] = await withShop(user.shopId, (db) => Promise.all([
+    saleFacts(db, addDays(today, -Math.max(days - 1, 1)), tomorrow), // covers the range and yesterday
+    lowStockCounts(db),
+    bestSellers(db, from, tomorrow, 8),
     db.$queryRaw<{ id: string; name: string; sku: string; stock: number; minStock: number }[]>`
       SELECT id, name, sku, stock, "minStock" FROM "Product" WHERE "isActive" = true AND stock <= "minStock" ORDER BY stock ASC, name ASC LIMIT 8`,
-  ]);
+  ]));
 
   const inRange = facts.filter((f) => f.at >= from);
   const todayFacts = facts.filter((f) => f.at >= today);

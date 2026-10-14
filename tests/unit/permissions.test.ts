@@ -1,21 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { can, ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
+import { can, ROLE_PERMISSIONS, STAFF_ROLES, type Permission, type ShopPermission } from "@/lib/permissions";
+
+const SHOP_PERMS: ShopPermission[] = ["pos.sell", "sales.view", "sales.viewAll", "sales.refund", "products.manage", "inventory.view", "inventory.adjust", "reports.view", "dashboard.view", "suppliers.manage", "users.manage", "settings.manage", "audit.view"];
 
 describe("role permissions", () => {
-  it("lets administrators do everything", () => {
-    const all = new Set(Object.values(ROLE_PERMISSIONS).flat());
-    for (const p of all) expect(can("ADMIN", p)).toBe(true);
+  it("lets a shop administrator do everything inside their shop, but nothing on the platform", () => {
+    for (const p of SHOP_PERMS) expect(can("ADMIN", p), p).toBe(true);
+    expect(can("ADMIN", "platform.manage")).toBe(false);
   });
 
   it("limits cashiers to selling, their own sales and read-only inventory", () => {
-    const allowed: Permission[] = ["pos.sell", "sales.view", "inventory.view"];
-    for (const p of allowed) expect(can("CASHIER", p)).toBe(true);
-    const denied: Permission[] = ["sales.viewAll", "sales.refund", "products.manage", "inventory.adjust", "reports.view", "dashboard.view", "suppliers.manage", "users.manage", "settings.manage", "audit.view"];
-    for (const p of denied) expect(can("CASHIER", p), p).toBe(false);
+    for (const p of ["pos.sell", "sales.view", "inventory.view"] as Permission[]) expect(can("CASHIER", p), p).toBe(true);
+    for (const p of SHOP_PERMS.filter((p) => !["pos.sell", "sales.view", "inventory.view"].includes(p))) expect(can("CASHIER", p), p).toBe(false);
+    expect(can("CASHIER", "platform.manage")).toBe(false);
   });
 
   it("lets managers run the shop but not administer users or settings", () => {
     for (const p of ["pos.sell", "sales.viewAll", "sales.refund", "products.manage", "inventory.adjust", "reports.view", "dashboard.view", "suppliers.manage"] as Permission[]) expect(can("MANAGER", p), p).toBe(true);
-    for (const p of ["users.manage", "settings.manage", "audit.view"] as Permission[]) expect(can("MANAGER", p), p).toBe(false);
+    for (const p of ["users.manage", "settings.manage", "audit.view", "platform.manage"] as Permission[]) expect(can("MANAGER", p), p).toBe(false);
+  });
+
+  it("gives the platform owner platform powers only: they run the platform, they do not work inside shops", () => {
+    expect(ROLE_PERMISSIONS.PLATFORM_OWNER).toEqual(["platform.manage"]);
+    for (const p of SHOP_PERMS) expect(can("PLATFORM_OWNER", p), p).toBe(false);
+  });
+
+  it("never lets a shop assign the platform-owner role", () => {
+    expect([...STAFF_ROLES]).toEqual(["ADMIN", "MANAGER", "CASHIER"]);
   });
 });

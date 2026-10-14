@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Card, PageHeader, td, th } from "@/components/ui";
-import { db } from "@/lib/db";
+import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { formatDate, formatDateTime } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Users" };
-const ROLE_TONE = { ADMIN: "blue", MANAGER: "amber", CASHIER: "slate" } as const;
+const ROLE_TONE = { PLATFORM_OWNER: "blue", ADMIN: "blue", MANAGER: "amber", CASHIER: "slate" } as const;
 
 export default async function UsersPage() {
   const me = await pageGuard("users.manage");
-  const [users, lastLogins] = await Promise.all([
+  const [users, lastLogins] = await withShop(me.shopId, (db) => Promise.all([
     db.user.findMany({ orderBy: [{ isActive: "desc" }, { role: "asc" }, { name: "asc" }], include: { _count: { select: { sales: true } } } }),
     db.auditLog.groupBy({ by: ["userId"], where: { action: "login.success" }, _max: { createdAt: true } }),
-  ]);
+  ]));
   const last = new Map(lastLogins.map((l) => [l.userId, l._max.createdAt]));
   return (
     <>

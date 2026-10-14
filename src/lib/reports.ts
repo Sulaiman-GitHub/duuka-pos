@@ -1,6 +1,6 @@
 import "server-only";
 import { bestSellers, groupByGrain, saleFacts, sumFacts, type Grain } from "@/lib/analytics";
-import { db } from "@/lib/db";
+import type { Tx } from "@/lib/tenant";
 import { addDays, kampalaDateString, parseKampalaDate, startOfKampalaDay } from "@/lib/time";
 
 export type ReportType = "sales" | "profit" | "inventory" | "best-sellers" | "low-stock" | "by-cashier" | "by-payment";
@@ -38,10 +38,10 @@ export function parseReportParams(sp: Record<string, string | string[] | undefin
 const METHOD_LABEL: Record<string, string> = { CASH: "Cash", MOBILE_MONEY: "Mobile Money", CARD: "Card", BANK_TRANSFER: "Bank transfer" };
 const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 1000) / 10 : 0);
 
-export async function buildReport(p: ReportParams): Promise<Report> {
+export async function buildReport(tx: Tx, p: ReportParams): Promise<Report> {
   switch (p.type) {
     case "sales": {
-      const facts = await saleFacts(p.from, p.toExclusive);
+      const facts = await saleFacts(tx, p.from, p.toExclusive);
       const rows = groupByGrain(facts, p.from, p.toExclusive, p.grain);
       const t = sumFacts(facts);
       return {
@@ -52,7 +52,7 @@ export async function buildReport(p: ReportParams): Promise<Report> {
       };
     }
     case "profit": {
-      const facts = await saleFacts(p.from, p.toExclusive);
+      const facts = await saleFacts(tx, p.from, p.toExclusive);
       const rows = groupByGrain(facts, p.from, p.toExclusive, p.grain);
       const t = sumFacts(facts);
       return {
@@ -64,7 +64,7 @@ export async function buildReport(p: ReportParams): Promise<Report> {
       };
     }
     case "inventory": {
-      const products = await db.product.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { sku: true, name: true, stock: true, minStock: true, costPrice: true, sellPrice: true, category: { select: { name: true } } } });
+      const products = await tx.product.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { sku: true, name: true, stock: true, minStock: true, costPrice: true, sellPrice: true, category: { select: { name: true } } } });
       const rows = products.map((x) => ({ sku: x.sku, name: x.name, category: x.category?.name ?? "—", stock: x.stock, min: x.minStock, cost: x.costPrice, costValue: x.stock * x.costPrice, retailValue: x.stock * x.sellPrice, status: x.stock === 0 ? "Out of stock" : x.stock <= x.minStock ? "Low stock" : "OK" }));
       return {
         type: p.type, title: "Inventory report", note: "A snapshot of current stock — it does not depend on the date range.",
@@ -74,7 +74,7 @@ export async function buildReport(p: ReportParams): Promise<Report> {
       };
     }
     case "best-sellers": {
-      const top = await bestSellers(p.from, p.toExclusive, 50);
+      const top = await bestSellers(tx, p.from, p.toExclusive, 50);
       return {
         type: p.type, title: "Best-selling products", note: "Ranked by units sold, net of returns. Revenue is after discounts. Top 50 products.",
         columns: [{ key: "rank", label: "#", kind: "int" }, { key: "name", label: "Product", kind: "text" }, { key: "sku", label: "SKU", kind: "text" }, { key: "units", label: "Units sold", kind: "int" }, { key: "revenue", label: "Revenue", kind: "money" }, { key: "profit", label: "Gross profit", kind: "money" }],
@@ -83,7 +83,7 @@ export async function buildReport(p: ReportParams): Promise<Report> {
       };
     }
     case "low-stock": {
-      const rows = await db.$queryRaw<{ sku: string; name: string; category: string | null; stock: number; minStock: number; costPrice: number }[]>`
+      const rows = await tx.$queryRaw<{ sku: string; name: string; category: string | null; stock: number; minStock: number; costPrice: number }[]>`
         SELECT p.sku, p.name, c.name AS category, p.stock, p."minStock", p."costPrice"
         FROM "Product" p LEFT JOIN "Category" c ON c.id = p."categoryId"
         WHERE p."isActive" = true AND p.stock <= p."minStock" ORDER BY p.stock ASC, p.name ASC`;
@@ -94,8 +94,8 @@ export async function buildReport(p: ReportParams): Promise<Report> {
       };
     }
     case "by-cashier": {
-      const facts = await saleFacts(p.from, p.toExclusive);
-      const users = await db.user.findMany({ select: { id: true, name: true } });
+      const facts = await saleFacts(tx, p.from, p.toExclusive);
+      const users = await tx.user.findMany({ select: { id: true, name: true } });
       const rows = users.map((u) => ({ u, t: sumFacts(facts.filter((f) => f.cashierId === u.id)) })).filter((x) => x.t.transactions > 0).sort((a, b) => b.t.net - a.t.net);
       const all = sumFacts(facts);
       return {
@@ -106,7 +106,7 @@ export async function buildReport(p: ReportParams): Promise<Report> {
       };
     }
     case "by-payment": {
-      const facts = await saleFacts(p.from, p.toExclusive);
+      const facts = await saleFacts(tx, p.from, p.toExclusive);
       const all = sumFacts(facts);
       const rows = Object.entries(METHOD_LABEL).map(([k, label]) => ({ label, t: sumFacts(facts.filter((f) => f.method === k)) })).filter((x) => x.t.transactions > 0).sort((a, b) => b.t.net - a.t.net);
       return {

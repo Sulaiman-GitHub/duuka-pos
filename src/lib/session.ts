@@ -2,9 +2,9 @@ import "server-only";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { cache } from "react";
-import { db } from "@/lib/db";
 import type { Role } from "@/generated/prisma/enums";
-import { can, type Permission } from "@/lib/permissions";
+import { can, type PlatformPermission, type ShopPermission } from "@/lib/permissions";
+import { asPlatform } from "@/lib/tenant";
 
 const COOKIE = "pos_session";
 const MAX_AGE = 60 * 60 * 12; // 12 hours
@@ -34,20 +34,26 @@ export async function destroySession() {
   (await cookies()).delete(COOKIE);
 }
 
-export type SessionUser = { id: string; name: string; email: string; role: Role };
+export type SessionUser = { id: string; name: string; email: string; role: Role; shopId: string | null; shopName: string | null };
+/** A signed-in member of a shop (admin, manager or cashier). */
+export type ShopUser = SessionUser & { shopId: string; shopName: string };
 
-// Re-reads the user from the DB so deactivated accounts and role changes apply immediately.
+// Re-reads the user (and their shop) on every request, so deactivating an account or a whole shop, or changing a role,
+// applies immediately. This is the one place that looks a user up before a shop is known, hence `asPlatform`.
 export const getUser = cache(async (): Promise<SessionUser | null> => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, key());
-    const user = await db.user.findUnique({
-      where: { id: String(payload.uid) },
-      select: { id: true, name: true, email: true, role: true, isActive: true },
-    });
+    const user = await asPlatform((tx) =>
+      tx.user.findUnique({
+        where: { id: String(payload.uid) },
+        select: { id: true, name: true, email: true, role: true, isActive: true, shop: { select: { id: true, name: true, isActive: true } } },
+      }),
+    );
     if (!user || !user.isActive) return null;
-    return { id: user.id, name: user.name, email: user.email, role: user.role };
+    if (user.role !== "PLATFORM_OWNER" && !user.shop?.isActive) return null; // a suspended shop locks out all its staff
+    return { id: user.id, name: user.name, email: user.email, role: user.role, shopId: user.shop?.id ?? null, shopName: user.shop?.name ?? null };
   } catch {
     return null;
   }
@@ -61,7 +67,15 @@ export async function requireUser(): Promise<SessionUser> {
   return user;
 }
 
-export async function requirePermission(perm: Permission): Promise<SessionUser> {
+/** For actions inside a shop: the signed-in user must be a member of a shop and hold the permission. */
+export async function requirePermission(perm: ShopPermission): Promise<ShopUser> {
+  const user = await requireUser();
+  if (!user.shopId || !user.shopName || !can(user.role, perm)) throw new AuthError("You do not have permission to do that");
+  return user as ShopUser;
+}
+
+/** For platform actions: only the platform owner. */
+export async function requirePlatformOwner(perm: PlatformPermission = "platform.manage"): Promise<SessionUser> {
   const user = await requireUser();
   if (!can(user.role, perm)) throw new AuthError("You do not have permission to do that");
   return user;

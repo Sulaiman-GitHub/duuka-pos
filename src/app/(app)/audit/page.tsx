@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Button, Card, PageHeader, inputCls, td, th } from "@/components/ui";
-import { db } from "@/lib/db";
+import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { addDays, formatDateTime, parseKampalaDate } from "@/lib/time";
 import type { Prisma } from "@/generated/prisma/client";
@@ -12,7 +12,7 @@ const PAGE_SIZE = 40;
 const tone = (action: string) => (action.endsWith("failed") ? "red" : action.startsWith("login") ? "slate" : action.includes("delete") || action.includes("cancel") || action.includes("return") ? "amber" : "blue") as "red" | "slate" | "amber" | "blue";
 
 export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
-  await pageGuard("audit.view");
+  const user = await pageGuard("audit.view");
   const sp = await searchParams;
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : "");
   const action = str("action"), userId = str("user");
@@ -23,12 +23,12 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
     ...(action && { action }), ...(userId && { userId }),
     ...((from || to) && { createdAt: { ...(from && { gte: from }), ...(to && { lt: addDays(to, 1) }) } }),
   };
-  const [rows, total, actions, users] = await Promise.all([
+  const [rows, total, actions, users] = await withShop(user.shopId, (db) => Promise.all([
     db.auditLog.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE, include: { user: { select: { name: true } } } }),
     db.auditLog.count({ where }),
     db.auditLog.findMany({ distinct: ["action"], select: { action: true }, orderBy: { action: "asc" } }),
     db.user.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
-  ]);
+  ]));
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const qs = (p: number) => new URLSearchParams(Object.entries({ action, user: userId, from: str("from"), to: str("to"), page: String(p) }).filter(([, v]) => v)).toString();
 

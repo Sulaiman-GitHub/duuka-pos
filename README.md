@@ -3,8 +3,9 @@
 Point-of-sale, inventory and reporting software for retail shops — being grown from a complete single-shop system into a
 **multi-shop online platform**, where each shop owner signs up, adds their own staff and chooses the categories they sell.
 
-> **Status:** the single-shop baseline below is complete and tested. Multi-shop support is the next milestone
-> (see the [roadmap](#roadmap)); until it lands, one deployment serves one shop.
+> **Status:** Phase 1 (multi-shop core) is implemented: shops are fully isolated by database row-level security. The platform
+> owner creates shops and their administrators; each administrator manages their own staff. One email belongs to one shop.
+> See the [roadmap](#roadmap) for what comes next.
 
 ## What it does today
 
@@ -25,13 +26,14 @@ Hosted on Vercel with a Neon PostgreSQL database. See [docs/ARCHITECTURE.md](doc
 
 ## Demo accounts
 
-After seeding (`npm run db:seed`) these accounts exist — demo data only, change or remove them before real use:
+After seeding (`npm run db:seed`; a second shop uses `admin@electronics.test`, `manager@electronics.test`, `cashier@electronics.test` with the same role passwords) these accounts exist — demo data only, change or remove them before real use:
 
 | Role | Email | Password |
 |---|---|---|
-| Administrator | `admin@pos.test` | `Admin@123` |
-| Manager | `manager@pos.test` | `Manager@123` |
-| Cashier | `cashier@pos.test` | `Cashier@123` |
+| Platform owner | `owner@duuka.test` | `Owner@123` |
+| Administrator — Duuka Mart | `admin@pos.test` | `Admin@123` |
+| Manager (Mart) | `manager@pos.test` | `Manager@123` |
+| Cashier (Mart) | `cashier@pos.test` | `Cashier@123` |
 
 ## Run it locally
 
@@ -62,14 +64,14 @@ Deployment guide: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Database: [docs/DATA
 
 | Phase | Goal | Contents |
 |---|---|---|
-| **1 · Multi-shop core** | Many shops, fully isolated | `Shop` (tenant) model and `shopId` on every table; per-shop uniqueness; shop-scoped data access plus PostgreSQL row-level security; cross-shop isolation tests; shop sign-up; owners invite their own managers and cashiers; category templates ("what do you sell?") |
+| **1 · Multi-shop core** ✅ | Many shops, fully isolated | `Shop` (tenant) model and `shopId` on every table; per-shop uniqueness; shop-scoped data access plus PostgreSQL row-level security; cross-shop isolation tests; shop sign-up; owners invite their own managers and cashiers; category templates ("what do you sell?") |
 | **2 · Owner experience** | Self-service | Password reset and invitations by email, per-shop settings and currency, platform admin console |
 | **3 · Commercial** | Run it as a business | Plans and billing (local payment providers), usage limits, terms and privacy policy, monitoring and backups |
 | **4 · Field-ready** | Fit real shops | Offline mode with sync, receipt-printer support, automatic Mobile Money confirmation, tax-receipt integration |
 
-## Known limitations of the baseline
+## Known limitations
 
-- One shop per deployment and one currency (UGX); no offline mode.
+- Shop sign-up is by the platform owner only (by design); no offline mode yet.
 - Mobile Money is recorded with a reference, not confirmed automatically.
 - Product images are stored in the database (fine for a small catalogue; use object storage at scale).
 - `npm audit` reports advisories inside Prisma's build-time command-line tooling; see

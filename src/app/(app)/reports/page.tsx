@@ -4,6 +4,7 @@ import { Download } from "lucide-react";
 import Link from "next/link";
 import { Button, Card, PageHeader, inputCls } from "@/components/ui";
 import { pageGuard } from "@/lib/guard";
+import { withShop } from "@/lib/tenant";
 import { formatNumber, formatUGX } from "@/lib/money";
 import { getSettings } from "@/lib/settings";
 import { REPORT_TYPES, buildReport, parseReportParams, type Col } from "@/lib/reports";
@@ -19,11 +20,11 @@ const fmt = (c: Col, v: string | number | undefined) => {
 };
 
 export default async function ReportsPage({ searchParams }: PageProps<"/reports">) {
-  await pageGuard("reports.view");
+  const user = await pageGuard("reports.view");
   const sp = await searchParams;
   const p = parseReportParams(sp);
   const meta = REPORT_TYPES.find((t) => t.key === p.type)!;
-  const [report, business] = await Promise.all([buildReport(p), getSettings()]);
+  const [report, business] = await Promise.all([withShop(user.shopId, (db) => buildReport(db, p)), getSettings(user.shopId)]);
 
   const today = startOfKampalaDay();
   const presets = [

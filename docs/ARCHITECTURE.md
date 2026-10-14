@@ -126,6 +126,16 @@ politely:
 | Double receiving of a purchase order | The order row is locked while stock is received |
 | Half-finished sales | The sale, its lines, the stock changes and ledger rows are **one transaction** — it all happens or none of it does |
 
+## Multi-shop tenancy
+
+Every business table carries a `shopId`. Isolation is enforced in PostgreSQL itself with **row-level security**
+(`ENABLE` + `FORCE`): each request runs in one transaction that executes `SET LOCAL ROLE duuka_app` (no `BYPASSRLS`) and
+sets `app.shop_id`; policies allow only rows of that shop. `withShop(shopId, fn)` (`src/lib/tenant.ts`) is the only way
+request code reaches the database, and `asPlatform` (platform-owner screens, login and session lookups) is the only
+cross-shop path. Rules: one email belongs to exactly one shop (globally unique); only the platform owner creates shops and
+their first administrator; shop administrators manage their own staff; suspended shops cannot sign in.
+`tests/integration/tenant-isolation.test.ts` attacks these boundaries (reads, writes, forged `shopId`, missing context).
+
 ## Time zones
 
 The shop operates in Uganda (UTC+3, no daylight saving) but servers run in UTC. Day boundaries for "today", reports,
@@ -149,20 +159,21 @@ so no information depends on seeing colour or using a mouse.
 
 `npm run build` runs `scripts/predeploy.ts` first: generate the Prisma client → `prisma migrate deploy` → load demo data
 **only if the database is empty**. Pushing to the production branch on Vercel therefore migrates the database and builds
-the app in one step. A deliberate one-off reset is available with `RESET_DEMO_DATA=YES-DELETE-EVERYTHING`
-(see [DEPLOYMENT.md](DEPLOYMENT.md)).
+the app in one step. The first platform owner is created from
+`PLATFORM_OWNER_*` variables if none exists; demo shops load only with `DEMO_DATA=1` into an empty database. There is no
+wipe switch in production (see [DEPLOYMENT.md](DEPLOYMENT.md)).
 
 Product images live in PostgreSQL (`bytea`) and are served by `/api/products/[id]/image`, because serverless hosting has
 no persistent disk.
 
 ## Testing
 
-`npm test` runs **55 tests** (Vitest).
+`npm test` runs **87 tests** (Vitest).
 
 | Suite | Covers |
 |---|---|
 | `tests/unit` | Permission matrix, Kampala day boundaries, money formatting, period bucketing and zero-filling, net/profit definitions, CSV escaping and formula-injection protection, report parameter handling |
-| `tests/integration` | Against a real PostgreSQL database (`pos_test`, created and migrated automatically; skipped if Postgres isn't reachable): stock ledger rules and concurrency, selling (pricing, discounts, caps, rollback, receipt numbering, simultaneous sales), returns (proportional refunds, exact settlement, double-refund protection, concurrent refunds) and the reporting SQL |
+| `tests/integration` | Against a real PostgreSQL database (`duuka_test`, created and migrated automatically; skipped if Postgres isn't reachable): stock ledger rules and concurrency, selling (pricing, discounts, caps, rollback, receipt numbering, simultaneous sales), returns (proportional refunds, exact settlement, double-refund protection, concurrent refunds) and the reporting SQL |
 
 Test runs refuse to start against any database whose name doesn't contain `test`. In addition, the application was
 exercised end-to-end in a real browser (sign-in, every role's access, sales, refunds, purchase orders, reports, CSV, the
@@ -178,11 +189,15 @@ login lockout, phone layouts) during development.
 
 ## Known limitations
 
-- **Demo credentials are public** by design; a real deployment would use private accounts and MFA.
+- **Demo credentials are public** by design; never load demo data in production. MFA is not implemented yet.
+- **Tenant isolation hardening:** the app connects as the database owner and drops to the restricted `duuka_app` role per
+  request (`SET LOCAL ROLE`). Application code never runs arbitrary SQL (ESLint bans `*RawUnsafe`), but before onboarding
+  real customers the runtime should connect with a separate non-owner login role so that switching back is impossible.
+- **Foreign keys do not enforce same-shop references**; the application checks them (e.g. a product's category must belong to the shop).
 - **Dependency advisories:** `npm audit` reports 4 findings (`prisma` CLI → `mysql2`, `deepmerge-ts`). They are in Prisma's
   command-line tooling, which runs only at build time; the running application uses the PostgreSQL driver and never loads
   `mysql2`. No patched 7.x release exists at the time of writing; the 8.x line is a release candidate with a different CLI.
 - **Parked sales** are stored per browser (`localStorage`), not on the server.
 - **PDF export** relies on the browser's *Save as PDF*; there is no server-side PDF generator.
-- **Single currency (UGX)** and a single shop/location.
+- **Currency** is stored per shop but formatting is still UGX-oriented; multi-currency display is a Phase 2 item.
 - **Sessions** are stateless JWTs: a stolen cookie works until it expires (12 h) or the user is deactivated.

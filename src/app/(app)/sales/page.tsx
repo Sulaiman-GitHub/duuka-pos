@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Button, Card, PageHeader, inputCls, td, tdNum, th } from "@/components/ui";
-import { db } from "@/lib/db";
+import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { formatNumber, formatUGX } from "@/lib/money";
 import { can } from "@/lib/permissions";
@@ -34,12 +34,12 @@ export default async function SalesPage({ searchParams }: PageProps<"/sales">) {
     ...((from || to) && { createdAt: { ...(from && { gte: from }), ...(to && { lt: addDays(to, 1) }) } }),
   };
 
-  const [sales, count, agg, cashiers] = await Promise.all([
+  const [sales, count, agg, cashiers] = await withShop(user.shopId, (db) => Promise.all([
     db.sale.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE, include: { cashier: { select: { name: true } }, _count: { select: { items: true } } } }),
     db.sale.count({ where }),
     db.sale.aggregate({ where, _sum: { total: true } }),
     viewAll ? db.user.findMany({ where: { role: { in: ["CASHIER", "MANAGER", "ADMIN"] } }, orderBy: { name: "asc" }, select: { id: true, name: true } }) : Promise.resolve([]),
-  ]);
+  ]));
   const pages = Math.max(1, Math.ceil(count / PAGE_SIZE));
   const qs = (p: number) => new URLSearchParams(Object.entries({ q, method: method ?? "", status: status ?? "", from: str("from"), to: str("to"), cashier: cashierId && viewAll ? cashierId : "", page: String(p) }).filter(([, v]) => v)).toString();
 

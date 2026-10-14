@@ -9,5 +9,10 @@ function create() {
   return new PrismaClient({ adapter });
 }
 
-export const db = globalForPrisma.prisma ?? create();
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+/**
+ * The raw database client. It connects as the owner role and is NOT scoped to a shop, so application code must not
+ * use it directly: go through `withShop` / `asPlatform` in `@/lib/tenant`, which switch to the restricted role and
+ * set the shop context. ESLint enforces this (see eslint.config.mjs).
+ */
+export const rawDb = globalForPrisma.prisma ?? create();
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = rawDb;

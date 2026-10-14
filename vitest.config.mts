@@ -2,7 +2,7 @@ import path from "node:path";
 import { defineConfig } from "vitest/config";
 
 // Integration tests run against their OWN database (never the dev/production one).
-const TEST_DB = process.env.TEST_DATABASE_URL ?? "postgresql://pos:pos@localhost:5432/pos_test";
+const TEST_DB = process.env.TEST_DATABASE_URL ?? "postgresql://pos:pos@localhost:5432/duuka_test";
 
 export default defineConfig({
   resolve: {

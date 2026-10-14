@@ -1,6 +1,7 @@
 import type { Permission } from "@/lib/permissions";
 
 export const NAV: { href: string; label: string; perm: Permission; icon: string }[] = [
+  { href: "/platform", label: "Shops", perm: "platform.manage", icon: "Store" },
   { href: "/dashboard", label: "Dashboard", perm: "dashboard.view", icon: "LayoutDashboard" },
   { href: "/pos", label: "Point of Sale", perm: "pos.sell", icon: "ShoppingCart" },
   { href: "/sales", label: "Sales", perm: "sales.view", icon: "Receipt" },

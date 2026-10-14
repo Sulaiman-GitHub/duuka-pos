@@ -7,8 +7,17 @@ datasource db {
   provider = "postgresql"
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Multi-shop (multi-tenant) model
+//
+// Every business table carries a `shopId`. PostgreSQL row-level security (see the migration) restricts each request to
+// the rows of one shop, so even a query that forgets a filter cannot see or change another shop's data. The default
+// for `shopId` is the shop of the current request (`app.shop_id`), so inserts are stamped automatically.
+// ---------------------------------------------------------------------------------------------------------------------
+
 enum Role {
-  ADMIN
+  PLATFORM_OWNER // runs the platform: creates shops and their first admin. Belongs to no shop.
+  ADMIN          // a shop's administrator: manages that shop's staff, settings and everything else in it
   MANAGER
   CASHIER
 }
@@ -43,8 +52,37 @@ enum PurchaseOrderStatus {
   CANCELLED
 }
 
+model Shop {
+  id                        String   @id @default(cuid())
+  name                      String
+  address                   String   @default("")
+  phone                     String   @default("")
+  receiptFooter             String   @default("Thank you for shopping with us!")
+  cashierMaxDiscountPercent Int      @default(10)
+  currency                  String   @default("UGX") // reserved: amounts are whole units of this currency
+  isActive                  Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  users              User[]
+  categories         Category[]
+  products           Product[]
+  stockMovements     StockMovement[]
+  sales              Sale[]
+  saleItems          SaleItem[]
+  saleReturns        SaleReturn[]
+  saleReturnItems    SaleReturnItem[]
+  suppliers          Supplier[]
+  purchaseOrders     PurchaseOrder[]
+  purchaseOrderItems PurchaseOrderItem[]
+  auditLogs          AuditLog[]
+  receiptCounters    ReceiptCounter[]
+}
+
 model User {
   id           String   @id @default(cuid())
+  // Null only for the platform owner. One email belongs to exactly one shop (email is globally unique).
+  shopId       String?
   name         String
   email        String   @unique
   passwordHash String
@@ -53,32 +91,41 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  shop           Shop?           @relation(fields: [shopId], references: [id])
   sales          Sale[]
   stockMovements StockMovement[]
   returns        SaleReturn[]
   purchaseOrders PurchaseOrder[]
   auditLogs      AuditLog[]
+
+  @@index([shopId, role])
 }
 
 model Category {
-  id          String    @id @default(cuid())
-  name        String    @unique
+  id          String   @id @default(cuid())
+  shopId      String   @default(dbgenerated("current_setting('app.shop_id'::text, true)"))
+  name        String
   description String?
-  createdAt   DateTime  @default(now())
-  products    Product[]
+  createdAt   DateTime @default(now())
+
+  shop     Shop      @relation(fields: [shopId], references: [id])
+  products Product[]
+
+  @@unique([shopId, name])
 }
 
 model Product {
   id          String   @id @default(cuid())
-  sku         String   @unique
-  barcode     String?  @unique
+  shopId      String   @default(dbgenerated("current_setting('app.shop_id'::text, true)"))
+  sku         String
+  barcode     String?
   name        String
   description String?
   // Images live in the DB (served by /api/products/[id]/image) because serverless hosts have no persistent disk.
   imageData   Bytes?
   imageType   String?
   categoryId  String?
-  // Money is stored as whole UGX (integers) to avoid floating point errors.
+  // Money is stored as whole currency units (integers) to avoid floating point errors.
   costPrice   Int
   sellPrice   Int
   stock       Int      @default(0)
@@ -87,17 +134,21 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  shop           Shop                @relation(fields: [shopId], references: [id])
   category       Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   saleItems      SaleItem[]
   stockMovements StockMovement[]
   poItems        PurchaseOrderItem[]
 
-  @@index([name])
+  @@unique([shopId, sku])
+  @@unique([shopId, barcode])
+  @@index([shopId, name])
   @@index([categoryId])
 }
 
 model StockMovement {
   id         String            @id @default(cuid())
+  shopId     String            @default(dbgenerated("current_setting('app.shop_id'::text, true)"))
   productId  String
   type       StockMovementType
   // Signed: positive adds stock, negative removes it.
@@ -108,15 +159,17 @@ model StockMovement {
   userId     String?
   createdAt  DateTime          @default(now())
 
+  shop    Shop    @relation(fields: [shopId], references: [id])
   product Product @relation(fields: [productId], references: [id])
   user    User?   @relation(fields: [userId], references: [id])
 
-  @@index([productId, createdAt])
+  @@index([shopId, productId, createdAt])
 }
 
 model Sale {
   id            String        @id @default(cuid())
-  receiptNo     String        @unique
+  shopId        String        @default(dbgenerated("current_setting('app.shop_id'::text, true)"))
+  receiptNo     String
   cashierId     String
   customerName  String?
   customerPhone String?
@@ -130,17 +183,20 @@ model Sale {
   note          String?
   createdAt     DateTime      @default(now())
 
+  shop    Shop         @relation(fields: [shopId], references: [id])
   cashier User         @relation(fields: [cashierId], references: [id])
   items   SaleItem[]
   returns SaleReturn[]
 
-  @@index([createdAt])
-  @@index([cashierId, createdAt])
-  @@index([paymentMethod])
+  @@unique([shopId, receiptNo])
+  @@index([shopId, createdAt])
+  @@index([shopId, cashierId, createdAt])
+  @@index([shopId, paymentMethod])
 }
 
 model SaleItem {
   id           String @id @default(cuid())
+  shopId       String @default(dbgenerated("current_setting('app.shop_id'::text, true)"))
   saleId       String
   productId    String
   // Snapshots so later price changes never alter historical sales or profit.
@@ -152,6 +208,7 @@ model SaleItem {
   lineDiscount Int    @default(0)
   lineTotal    Int
 
+  shop    Shop             @relation(fields: [shopId], references: [id])
   sale    Sale             @relation(fields: [saleId], references: [id], onDelete: Cascade)
   product Product          @relation(fields: [productId], references: [id])
   returns SaleReturnItem[]
@@ -162,12 +219,14 @@ model SaleItem {
 
 model SaleReturn {
   id          String   @id @default(cuid())
+  shopId      String   @default(dbgenerated("current_setting('app.shop_id'::text, true)"))
   saleId      String
   processedBy String
   reason      String?
   refundTotal Int
   createdAt   DateTime @default(now())
 
+  shop  Shop             @relation(fields: [shopId], references: [id])
   sale  Sale             @relation(fields: [saleId], references: [id])
   user  User             @relation(fields: [processedBy], references: [id])
   items SaleReturnItem[]
@@ -177,17 +236,20 @@ model SaleReturn {
 
 model SaleReturnItem {
   id           String @id @default(cuid())
+  shopId       String @default(dbgenerated("current_setting('app.shop_id'::text, true)"))
   returnId     String
   saleItemId   String
   quantity     Int
   refundAmount Int
 
+  shop       Shop       @relation(fields: [shopId], references: [id])
   saleReturn SaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
   saleItem   SaleItem   @relation(fields: [saleItemId], references: [id])
 }
 
 model Supplier {
   id        String   @id @default(cuid())
+  shopId    String   @default(dbgenerated("current_setting('app.shop_id'::text, true)"))
   name      String
   phone     String?
   email     String?
@@ -195,12 +257,14 @@ model Supplier {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
+  shop           Shop            @relation(fields: [shopId], references: [id])
   purchaseOrders PurchaseOrder[]
 }
 
 model PurchaseOrder {
   id          String              @id @default(cuid())
-  poNumber    String              @unique
+  shopId      String              @default(dbgenerated("current_setting('app.shop_id'::text, true)"))
+  poNumber    String
   supplierId  String
   status      PurchaseOrderStatus @default(DRAFT)
   total       Int                 @default(0)
@@ -210,42 +274,32 @@ model PurchaseOrder {
   createdAt   DateTime            @default(now())
   receivedAt  DateTime?
 
+  shop      Shop                @relation(fields: [shopId], references: [id])
   supplier  Supplier            @relation(fields: [supplierId], references: [id])
   createdBy User                @relation(fields: [createdById], references: [id])
   items     PurchaseOrderItem[]
+
+  @@unique([shopId, poNumber])
 }
 
 model PurchaseOrderItem {
   id          String @id @default(cuid())
+  shopId      String @default(dbgenerated("current_setting('app.shop_id'::text, true)"))
   orderId     String
   productId   String
   quantity    Int
   unitCost    Int
   receivedQty Int    @default(0)
 
+  shop    Shop          @relation(fields: [shopId], references: [id])
   order   PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product       @relation(fields: [productId], references: [id])
 }
 
-// One row per Kampala day; incremented atomically so concurrent sales never collide on a receipt number.
-model ReceiptCounter {
-  day  String @id // yyyy-mm-dd
-  last Int
-}
-
-// Single-row table (id = "main") holding shop-wide settings an admin can edit.
-model ShopSettings {
-  id                        String   @id @default("main")
-  name                      String
-  address                   String
-  phone                     String
-  receiptFooter             String
-  cashierMaxDiscountPercent Int      @default(10)
-  updatedAt                 DateTime @updatedAt
-}
-
 model AuditLog {
   id        String   @id @default(cuid())
+  // Set by the code that writes the entry; null for platform-level events (e.g. a sign-in attempt for an unknown email).
+  shopId    String?
   userId    String?
   action    String
   entity    String?
@@ -253,8 +307,20 @@ model AuditLog {
   detail    String?
   createdAt DateTime @default(now())
 
+  shop Shop? @relation(fields: [shopId], references: [id])
   user User? @relation(fields: [userId], references: [id])
 
-  @@index([createdAt])
+  @@index([shopId, createdAt])
   @@index([action, createdAt])
+}
+
+// One row per shop per Kampala day; incremented atomically so concurrent sales never collide on a receipt number.
+model ReceiptCounter {
+  shopId String @default(dbgenerated("current_setting('app.shop_id'::text, true)"))
+  day    String // yyyy-mm-dd
+  last   Int
+
+  shop Shop @relation(fields: [shopId], references: [id])
+
+  @@id([shopId, day])
 }

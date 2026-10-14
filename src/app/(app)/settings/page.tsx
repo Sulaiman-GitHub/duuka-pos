@@ -7,11 +7,11 @@ import { SettingsForm } from "./settings-form";
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  await pageGuard("settings.manage");
+  const user = await pageGuard("settings.manage");
   return (
     <>
       <PageHeader title="Settings" subtitle="Shop details shown on receipts, and till rules" />
-      <Card className="max-w-xl p-6"><SettingsForm settings={await getSettings()} /></Card>
+      <Card className="max-w-xl p-6"><SettingsForm settings={await getSettings(user.shopId)} /></Card>
     </>
   );
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Card, PageHeader } from "@/components/ui";
-import { db } from "@/lib/db";
+import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { updateProduct } from "../../actions";
 import { ProductForm } from "../../product-form";
@@ -9,12 +9,12 @@ import { ProductForm } from "../../product-form";
 export const metadata: Metadata = { title: "Edit product" };
 
 export default async function EditProductPage({ params }: PageProps<"/products/[id]/edit">) {
-  await pageGuard("products.manage");
+  const user = await pageGuard("products.manage");
   const { id } = await params;
-  const [p, categories] = await Promise.all([
+  const [p, categories] = await withShop(user.shopId, (db) => Promise.all([
     db.product.findUnique({ where: { id }, omit: { imageData: true } }),
     db.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
-  ]);
+  ]));
   if (!p) notFound();
   const hasImage = !!p.imageType;
   return (

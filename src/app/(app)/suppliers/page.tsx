@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Card, PageHeader, td, th } from "@/components/ui";
-import { db } from "@/lib/db";
+import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { formatUGX } from "@/lib/money";
 import { SupplierTabs } from "./tabs";
@@ -9,8 +9,8 @@ import { SupplierTabs } from "./tabs";
 export const metadata: Metadata = { title: "Suppliers" };
 
 export default async function SuppliersPage() {
-  await pageGuard("suppliers.manage");
-  const suppliers = await db.supplier.findMany({ orderBy: [{ isActive: "desc" }, { name: "asc" }], include: { _count: { select: { purchaseOrders: true } }, purchaseOrders: { where: { status: { not: "CANCELLED" } }, select: { total: true } } } });
+  const user = await pageGuard("suppliers.manage");
+  const suppliers = await withShop(user.shopId, (db) => db.supplier.findMany({ orderBy: [{ isActive: "desc" }, { name: "asc" }], include: { _count: { select: { purchaseOrders: true } }, purchaseOrders: { where: { status: { not: "CANCELLED" } }, select: { total: true } } } }));
   return (
     <>
       <PageHeader title="Suppliers & Orders" subtitle="Who you buy from, and what you've ordered"

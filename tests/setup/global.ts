@@ -1,7 +1,7 @@
 import { execSync } from "node:child_process";
 import pg from "pg";
 
-const DEFAULT = "postgresql://pos:pos@localhost:5432/pos_test";
+const DEFAULT = "postgresql://pos:pos@localhost:5432/duuka_test";
 
 /** Creates the test database if needed and applies migrations. Silently skips when Postgres isn't reachable. */
 export default async function setup() {

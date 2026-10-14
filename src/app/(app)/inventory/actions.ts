@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { audit } from "@/lib/audit";
-import { db } from "@/lib/db";
+import { auditNow } from "@/lib/audit";
+import { withShop } from "@/lib/tenant";
 import { applyStockChange, StockError } from "@/lib/inventory";
 import { requirePermission } from "@/lib/session";
 
@@ -26,7 +26,7 @@ export async function adjustStock(_prev: AdjustState, formData: FormData): Promi
   if (mode !== "SET" && quantity === 0) return { error: "Quantity must be greater than zero.", values };
 
   try {
-    await db.$transaction(async (tx) => {
+    await withShop(user.shopId, async (tx) => {
       const p = await tx.product.findUnique({ where: { id: productId }, select: { stock: true } });
       if (!p) throw new StockError("Product not found.");
       const delta = mode === "SET" ? quantity - p.stock : mode === "ADD" ? quantity : -quantity;
@@ -38,7 +38,7 @@ export async function adjustStock(_prev: AdjustState, formData: FormData): Promi
     if (e instanceof StockError) return { error: e.message, values };
     throw e;
   }
-  await audit(user.id, "stock.adjust", "Product", productId, `${mode} ${quantity}: ${reason}`);
+  await auditNow(user.shopId, user.id, "stock.adjust", "Product", productId, `${mode} ${quantity}: ${reason}`);
   revalidatePath("/inventory", "layout");
   revalidatePath("/products");
   redirect("/inventory/history");

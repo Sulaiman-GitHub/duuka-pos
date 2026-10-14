@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert, Badge } from "@/components/ui";
 import { getSettings } from "@/lib/settings";
-import { db } from "@/lib/db";
+import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { formatUGX } from "@/lib/money";
 import { can } from "@/lib/permissions";
@@ -18,11 +18,13 @@ export default async function ReceiptPage({ params, searchParams }: PageProps<"/
   const user = await pageGuard("sales.view");
   const { id } = await params;
   const sp = await searchParams;
-  const business = await getSettings();
-  const sale = await db.sale.findUnique({
-    where: { id },
-    include: { cashier: { select: { name: true } }, items: { orderBy: { productName: "asc" } }, returns: { select: { refundTotal: true, createdAt: true, reason: true } } },
-  });
+  const business = await getSettings(user.shopId);
+  const sale = await withShop(user.shopId, (db) =>
+    db.sale.findUnique({
+      where: { id },
+      include: { cashier: { select: { name: true } }, items: { orderBy: { productName: "asc" } }, returns: { select: { refundTotal: true, createdAt: true, reason: true } } },
+    }),
+  );
   // Cashiers may only open their own receipts; the same "not found" avoids confirming other receipts exist.
   if (!sale || (sale.cashierId !== user.id && !can(user.role, "sales.viewAll"))) notFound();
   const refunded = sale.returns.reduce((s, r) => s + r.refundTotal, 0);

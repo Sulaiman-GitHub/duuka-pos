@@ -129,25 +129,27 @@ erDiagram
   }
 ```
 
-Two helper tables sit outside the diagram: **`ShopSettings`** (one row, `id = 'main'`: shop name, address, phone, receipt
-footer, cashier discount limit) and **`ReceiptCounter`** (one row per Kampala day, used to allocate receipt numbers atomically).
+Multi-shop: a **`Shop`** table (name, business type, currency, contact details, receipt footer, cashier discount limit,
+`isActive`) owns every other table through `shopId`, and **`ReceiptCounter`** (one row per shop per Kampala day) allocates
+receipt numbers atomically. Row-level security restricts each request to its own shop's rows. The platform owner is the only
+user with no shop (`role = PLATFORM_OWNER` ⇔ `shopId IS NULL`, enforced by a CHECK constraint).
 
 ## Tables
 
 | Table | Purpose | Notable rules |
 |---|---|---|
-| `User` | Staff accounts | Unique email; bcrypt `passwordHash`; `isActive` lets an account be disabled without deleting its history |
-| `Category` | Product groups | Unique name; deleting a category leaves its products uncategorised |
-| `Product` | Items for sale | Unique `sku` and `barcode`; `isActive` for soft removal; image stored as `bytea` |
+| `User` | Staff accounts | Globally unique email (one email = one shop); bcrypt `passwordHash`; `isActive` lets an account be disabled without deleting its history |
+| `Category` | Product groups | Unique per shop; deleting a category leaves its products uncategorised |
+| `Product` | Items for sale | Unique `sku` and `barcode` per shop; `isActive` for soft removal; image stored as `bytea` |
 | `StockMovement` | **Stock ledger** — one row per stock change | Signed `quantity`, `stockAfter` balance, `reference` (receipt / PO number); indexed by `(productId, createdAt)` |
-| `Sale` | One completed transaction | Unique `receiptNo`; `status` moves to partially/fully refunded; indexed by date, cashier and payment method |
+| `Sale` | One completed transaction | Unique `receiptNo` per shop; `status` moves to partially/fully refunded; indexed by date, cashier and payment method |
 | `SaleItem` | Lines of a sale | **Snapshots** name, SKU, unit price and unit cost so history never changes when a product is edited |
 | `SaleReturn` / `SaleReturnItem` | Refunds against a sale | A sale can have several returns; refunds sum to at most the amount paid |
 | `Supplier` | Who stock is bought from | Soft-deactivated, never deleted |
 | `PurchaseOrder` / `PurchaseOrderItem` | Orders to suppliers | `receivedQty` tracks partial deliveries; `invoiceNo` records the supplier's invoice |
 | `AuditLog` | Who did what, and when | Includes sign-ins and failed sign-ins; also backs the login lockout; indexed by `(action, createdAt)` |
-| `ShopSettings` | Shop-wide settings | Single row |
-| `ReceiptCounter` | Receipt number allocation | One row per day |
+| `Shop` | A tenant: settings, currency, active flag | Created only by the platform owner |
+| `ReceiptCounter` | Receipt number allocation | One row per shop per day |
 
 ## Integrity decisions
 
@@ -161,7 +163,7 @@ footer, cashier discount limit) and **`ReceiptCounter`** (one row per Kampala da
 
 ```bash
 npx prisma migrate deploy      # apply all migrations to an empty or existing database
-npm run db:seed                # demo data (WIPES existing data)
+npm run db:seed                # LOCAL demo shops (WIPES existing data)
 ```
 
 Migrations run automatically on every deploy (`scripts/predeploy.ts`).

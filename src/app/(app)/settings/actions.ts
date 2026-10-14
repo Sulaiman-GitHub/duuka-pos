@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { audit } from "@/lib/audit";
-import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/session";
+import { withShop } from "@/lib/tenant";
 
 export type SettingsState = { error?: string; ok?: string };
 
@@ -20,8 +20,10 @@ export async function saveSettings(_p: SettingsState, fd: FormData): Promise<Set
   const user = await requirePermission("settings.manage");
   const parsed = schema.safeParse(Object.fromEntries(fd));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  await db.shopSettings.upsert({ where: { id: "main" }, create: { id: "main", ...parsed.data }, update: parsed.data });
-  await audit(user.id, "settings.update", "ShopSettings", "main", parsed.data.name);
+  await withShop(user.shopId, async (tx) => {
+    await tx.shop.update({ where: { id: user.shopId }, data: parsed.data });
+    await audit(tx, user.shopId, user.id, "settings.update", "Shop", user.shopId, parsed.data.name);
+  });
   revalidatePath("/", "layout");
   return { ok: "Settings saved." };
 }

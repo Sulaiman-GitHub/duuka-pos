@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Button, Card, PageHeader, inputCls, td, tdNum, th } from "@/components/ui";
-import { db } from "@/lib/db";
+import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { formatNumber, formatUGX } from "@/lib/money";
 import { can } from "@/lib/permissions";
@@ -28,33 +28,36 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
   const filter = typeof sp.filter === "string" ? sp.filter : "all";
   const page = Math.max(1, Number(sp.page) || 1);
 
-  const [val] = await db.$queryRaw<{ cost: bigint | null; retail: bigint | null; units: bigint | null }[]>`
-    SELECT SUM(stock::bigint * "costPrice") AS cost, SUM(stock::bigint * "sellPrice") AS retail, SUM(stock)::bigint AS units
-    FROM "Product" WHERE "isActive" = true`;
-  const [low] = await db.$queryRaw<{ low: bigint; out: bigint }[]>`
-    SELECT COUNT(*) FILTER (WHERE stock > 0 AND stock <= "minStock") AS low, COUNT(*) FILTER (WHERE stock = 0) AS out
-    FROM "Product" WHERE "isActive" = true`;
-  const cost = Number(val.cost ?? 0), retail = Number(val.retail ?? 0);
+  const { val, cost, retail, low, rows, total } = await withShop(user.shopId, async (db) => {
+    const [val] = await db.$queryRaw<{ cost: bigint | null; retail: bigint | null; units: bigint | null }[]>`
+      SELECT SUM(stock::bigint * "costPrice") AS cost, SUM(stock::bigint * "sellPrice") AS retail, SUM(stock)::bigint AS units
+      FROM "Product" WHERE "isActive" = true`;
+    const [low] = await db.$queryRaw<{ low: bigint; out: bigint }[]>`
+      SELECT COUNT(*) FILTER (WHERE stock > 0 AND stock <= "minStock") AS low, COUNT(*) FILTER (WHERE stock = 0) AS out
+      FROM "Product" WHERE "isActive" = true`;
+    const cost = Number(val.cost ?? 0), retail = Number(val.retail ?? 0);
 
-  // Prisma can't compare two columns in a filter, so low-stock rows are selected by id via SQL.
-  let idFilter: Prisma.ProductWhereInput = {};
-  if (filter === "low") {
-    const ids = await db.$queryRaw<{ id: string }[]>`SELECT id FROM "Product" WHERE "isActive" = true AND stock > 0 AND stock <= "minStock"`;
-    idFilter = { id: { in: ids.map((r) => r.id) } };
-  } else if (filter === "out") idFilter = { stock: 0 };
+    // Prisma can't compare two columns in a filter, so low-stock rows are selected by id via SQL.
+    let idFilter: Prisma.ProductWhereInput = {};
+    if (filter === "low") {
+      const ids = await db.$queryRaw<{ id: string }[]>`SELECT id FROM "Product" WHERE "isActive" = true AND stock > 0 AND stock <= "minStock"`;
+      idFilter = { id: { in: ids.map((r) => r.id) } };
+    } else if (filter === "out") idFilter = { stock: 0 };
 
-  const where: Prisma.ProductWhereInput = {
-    isActive: true,
-    ...idFilter,
-    ...(q && { OR: [{ name: { contains: q, mode: "insensitive" } }, { sku: { contains: q, mode: "insensitive" } }] }),
-  };
-  const [rows, total] = await Promise.all([
-    db.product.findMany({
-      where, orderBy: filter === "all" ? { name: "asc" } : { stock: "asc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE,
-      select: { id: true, name: true, sku: true, stock: true, minStock: true, costPrice: true, category: { select: { name: true } } },
-    }),
-    db.product.count({ where }),
-  ]);
+    const where: Prisma.ProductWhereInput = {
+      isActive: true,
+      ...idFilter,
+      ...(q && { OR: [{ name: { contains: q, mode: "insensitive" } }, { sku: { contains: q, mode: "insensitive" } }] }),
+    };
+    const [rows, total] = await Promise.all([
+      db.product.findMany({
+        where, orderBy: filter === "all" ? { name: "asc" } : { stock: "asc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE,
+        select: { id: true, name: true, sku: true, stock: true, minStock: true, costPrice: true, category: { select: { name: true } } },
+      }),
+      db.product.count({ where }),
+    ]);
+    return { val, cost, retail, low, rows, total };
+  });
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const qs = (p: number) => new URLSearchParams({ ...(q && { q }), filter, page: String(p) }).toString();
 

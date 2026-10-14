@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Card, PageHeader, inputCls, td, tdNum, th, Button } from "@/components/ui";
-import { db } from "@/lib/db";
+import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { can } from "@/lib/permissions";
 import { formatNumber, formatUGX } from "@/lib/money";
@@ -27,14 +27,14 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
     ...(status === "inactive" && { isActive: false }),
   };
 
-  const [products, total, categories] = await Promise.all([
+  const [products, total, categories] = await withShop(user.shopId, (db) => Promise.all([
     db.product.findMany({
       where, orderBy: { name: "asc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE,
       select: { id: true, name: true, sku: true, stock: true, minStock: true, costPrice: true, sellPrice: true, isActive: true, imageType: true, category: { select: { name: true } } },
     }),
     db.product.count({ where }),
     db.category.findMany({ orderBy: { name: "asc" } }),
-  ]);
+  ]));
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const qs = (p: number) => new URLSearchParams({ ...(q && { q }), ...(category && { category }), status, page: String(p) }).toString();
 

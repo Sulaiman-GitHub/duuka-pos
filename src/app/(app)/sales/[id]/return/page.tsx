@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Card, PageHeader } from "@/components/ui";
-import { db } from "@/lib/db";
+import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { ReturnForm } from "./return-form";
 
 export const metadata: Metadata = { title: "Process return" };
 
 export default async function ReturnPage({ params }: PageProps<"/sales/[id]/return">) {
-  await pageGuard("sales.refund");
+  const user = await pageGuard("sales.refund");
   const { id } = await params;
-  const sale = await db.sale.findUnique({ where: { id }, include: { items: { include: { returns: { select: { quantity: true } } }, orderBy: { productName: "asc" } } } });
+  const sale = await withShop(user.shopId, (db) => db.sale.findUnique({ where: { id }, include: { items: { include: { returns: { select: { quantity: true } } }, orderBy: { productName: "asc" } } } }));
   if (!sale) notFound();
   return (
     <>

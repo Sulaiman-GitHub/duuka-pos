@@ -1,15 +1,15 @@
 "use client";
 
 import clsx from "clsx";
-import { BarChart3, Boxes, History, LayoutDashboard, LogOut, Menu, Package, Receipt, Settings, ShoppingCart, Truck, Users, X } from "lucide-react";
+import { BarChart3, Boxes, History, LayoutDashboard, LogOut, Menu, Package, Receipt, Settings, ShoppingCart, Store, Truck, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { logout } from "@/app/login/actions";
 
-const icons = { LayoutDashboard, ShoppingCart, Receipt, Package, Boxes, Truck, BarChart3, Users, History, Settings };
+const icons = { LayoutDashboard, ShoppingCart, Receipt, Package, Boxes, Truck, BarChart3, Users, History, Settings, Store };
 
-export function Sidebar({ items, user }: { items: { href: string; label: string; icon: string }[]; user: { name: string; role: string } }) {
+export function Sidebar({ items, user, shopName }: { items: { href: string; label: string; icon: string }[]; user: { name: string; role: string }; shopName?: string | null }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -35,13 +35,13 @@ export function Sidebar({ items, user }: { items: { href: string; label: string;
   return (
     <>
       <div className="no-print flex items-center justify-between bg-slate-900 px-4 py-3 text-white lg:hidden">
-        <span className="font-semibold">Duuka POS</span>
+        <span className="font-semibold">Duuka POS{shopName ? ` · ${shopName}` : ""}</span>
         <button aria-label="Toggle menu" onClick={() => setOpen(!open)}>{open ? <X /> : <Menu />}</button>
       </div>
       <aside className={clsx("no-print fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-slate-900 text-white transition-transform lg:static lg:translate-x-0", open ? "translate-x-0 top-12" : "-translate-x-full")}>
         <div className="hidden items-center gap-3 border-b border-slate-800 px-5 py-5 lg:flex">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-bold">D</div>
-          <span className="text-lg font-semibold">Duuka POS</span>
+          <div className="min-w-0"><div className="text-lg font-semibold leading-tight">Duuka POS</div><div className="truncate text-xs text-slate-400">{shopName ?? "Platform"}</div></div>
         </div>
         {nav}
         <div className="border-t border-slate-800 p-4">

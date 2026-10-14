@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { audit } from "@/lib/audit";
-import { db } from "@/lib/db";
+import { auditNow } from "@/lib/audit";
+import { withShop, type Tx } from "@/lib/tenant";
 import { requirePermission } from "@/lib/session";
 
 export type ProductFormState = { error?: string; fieldErrors?: Record<string, string>; values?: Record<string, string> };
@@ -61,6 +61,13 @@ async function readImage(formData: FormData): Promise<{ data: Uint8Array<ArrayBu
   return { data, type };
 }
 
+/** Thrown when a submitted id refers to something that isn't in this shop (foreign keys alone can't check that). */
+class InvalidReference extends Error {}
+
+async function assertCategoryInShop(tx: Tx, categoryId: string | undefined) {
+  if (categoryId && !(await tx.category.count({ where: { id: categoryId } }))) throw new InvalidReference();
+}
+
 function newSku() {
   return "SKU-" + Date.now().toString(36).toUpperCase().slice(-6);
 }
@@ -85,7 +92,8 @@ export async function createProduct(_prev: ProductFormState, formData: FormData)
 
   let id: string;
   try {
-    id = await db.$transaction(async (tx) => {
+    id = await withShop(user.shopId, async (tx) => {
+      await assertCategoryInShop(tx, d.categoryId);
       const p = await tx.product.create({
         data: {
           name: d.name, sku: d.sku ?? newSku(), barcode: d.barcode, description: d.description, categoryId: d.categoryId,
@@ -98,11 +106,12 @@ export async function createProduct(_prev: ProductFormState, formData: FormData)
       return p.id;
     });
   } catch (e) {
+    if (e instanceof InvalidReference) return { fieldErrors: { categoryId: "Choose a category from the list." }, values: echo(formData) };
     const msg = uniqueError(e);
     if (msg) return { fieldErrors: { [msg.includes("barcode") ? "barcode" : "sku"]: msg }, values: echo(formData) };
     throw e;
   }
-  await audit(user.id, "product.create", "Product", id, d.name);
+  await auditNow(user.shopId, user.id, "product.create", "Product", id, d.name);
   revalidatePath("/products");
   redirect("/products");
 }
@@ -119,7 +128,8 @@ export async function updateProduct(id: string, _prev: ProductFormState, formDat
   const removeImage = formData.get("removeImage") === "on";
 
   try {
-    await db.$transaction(async (tx) => {
+    await withShop(user.shopId, async (tx) => {
+      await assertCategoryInShop(tx, d.categoryId);
       const existing = await tx.product.findUnique({ where: { id }, select: { stock: true } });
       if (!existing) throw new Error("Product not found");
       await tx.product.update({
@@ -137,32 +147,36 @@ export async function updateProduct(id: string, _prev: ProductFormState, formDat
         });
     });
   } catch (e) {
+    if (e instanceof InvalidReference) return { fieldErrors: { categoryId: "Choose a category from the list." }, values: echo(formData) };
     const msg = uniqueError(e);
     if (msg) return { fieldErrors: { [msg.includes("barcode") ? "barcode" : "sku"]: msg }, values: echo(formData) };
     throw e;
   }
-  await audit(user.id, "product.update", "Product", id, d.name);
+  await auditNow(user.shopId, user.id, "product.update", "Product", id, d.name);
   revalidatePath("/products");
   redirect("/products");
 }
 
 export async function toggleProductActive(id: string) {
   const user = await requirePermission("products.manage");
-  const p = await db.product.findUnique({ where: { id }, select: { isActive: true, name: true } });
+  const p = await withShop(user.shopId, (db) => db.product.findUnique({ where: { id }, select: { isActive: true, name: true } }));
   if (!p) return;
-  await db.product.update({ where: { id }, data: { isActive: !p.isActive } });
-  await audit(user.id, p.isActive ? "product.deactivate" : "product.activate", "Product", id, p.name);
+  await withShop(user.shopId, (db) => db.product.update({ where: { id }, data: { isActive: !p.isActive } }));
+  await auditNow(user.shopId, user.id, p.isActive ? "product.deactivate" : "product.activate", "Product", id, p.name);
   revalidatePath("/products");
 }
 
 export async function deleteProduct(id: string): Promise<{ error?: string }> {
   const user = await requirePermission("products.manage");
-  const p = await db.product.findUnique({ where: { id }, select: { name: true, _count: { select: { saleItems: true, poItems: true } } } });
+  const p = await withShop(user.shopId, (db) => db.product.findUnique({ where: { id }, select: { name: true, _count: { select: { saleItems: true, poItems: true } } } }));
   if (!p) return {};
   if (p._count.saleItems > 0 || p._count.poItems > 0)
     return { error: `"${p.name}" has sales or purchase history and can't be deleted. Deactivate it instead.` };
-  await db.$transaction([db.stockMovement.deleteMany({ where: { productId: id } }), db.product.delete({ where: { id } })]);
-  await audit(user.id, "product.delete", "Product", id, p.name);
+  await withShop(user.shopId, async (db) => {
+    await db.stockMovement.deleteMany({ where: { productId: id } });
+    await withShop(user.shopId, (db) => db.product.delete({ where: { id } }));
+  });
+  await auditNow(user.shopId, user.id, "product.delete", "Product", id, p.name);
   revalidatePath("/products");
   return {};
 }
@@ -174,8 +188,8 @@ export async function createCategory(_prev: { error?: string }, formData: FormDa
   const parsed = catSchema.safeParse({ name: formData.get("name"), description: formData.get("description") || undefined });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   try {
-    const c = await db.category.create({ data: parsed.data });
-    await audit(user.id, "category.create", "Category", c.id, c.name);
+    const c = await withShop(user.shopId, (db) => db.category.create({ data: parsed.data }));
+    await auditNow(user.shopId, user.id, "category.create", "Category", c.id, c.name);
   } catch (e) {
     if (uniqueError(e)) return { error: "A category with that name already exists." };
     throw e;
@@ -186,11 +200,11 @@ export async function createCategory(_prev: { error?: string }, formData: FormDa
 
 export async function deleteCategory(id: string): Promise<{ error?: string }> {
   const user = await requirePermission("products.manage");
-  const c = await db.category.findUnique({ where: { id }, select: { name: true, _count: { select: { products: true } } } });
+  const c = await withShop(user.shopId, (db) => db.category.findUnique({ where: { id }, select: { name: true, _count: { select: { products: true } } } }));
   if (!c) return {};
   if (c._count.products > 0) return { error: `"${c.name}" still has ${c._count.products} product(s). Move them first.` };
-  await db.category.delete({ where: { id } });
-  await audit(user.id, "category.delete", "Category", id, c.name);
+  await withShop(user.shopId, (db) => db.category.delete({ where: { id } }));
+  await auditNow(user.shopId, user.id, "category.delete", "Category", id, c.name);
   revalidatePath("/products", "layout");
   return {};
 }

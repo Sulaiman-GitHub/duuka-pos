@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Card, PageHeader, td, th } from "@/components/ui";
-import { db } from "@/lib/db";
+import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { formatUGX } from "@/lib/money";
 import { formatDate } from "@/lib/time";
@@ -11,8 +11,8 @@ import { SupplierTabs } from "../tabs";
 export const metadata: Metadata = { title: "Purchase orders" };
 
 export default async function OrdersPage() {
-  await pageGuard("suppliers.manage");
-  const orders = await db.purchaseOrder.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { supplier: { select: { name: true } }, items: { select: { quantity: true, receivedQty: true } } } });
+  const user = await pageGuard("suppliers.manage");
+  const orders = await withShop(user.shopId, (db) => db.purchaseOrder.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { supplier: { select: { name: true } }, items: { select: { quantity: true, receivedQty: true } } } }));
   return (
     <>
       <PageHeader title="Suppliers & Orders" subtitle="Order stock from suppliers and receive it into inventory"

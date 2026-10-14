@@ -24,11 +24,21 @@
    Seeded 4 users, 44 products, … sales.
    ```
 
-5. **Open the URL** and sign in with a [demo account](../README.md#demo-accounts).
+5. **Open the URL** and sign in with the platform owner account you configured.
 
 From then on, every push to the production branch migrates the database and redeploys automatically. Demo data is only
 loaded into an *empty* database, so real data is never overwritten. Each deploy also gives demo products that have
 **no image** their illustration; products that already have an image (for example one you uploaded) are left alone.
+
+### Required for production
+
+| Variable | Purpose |
+|---|---|
+| `PLATFORM_OWNER_EMAIL`, `PLATFORM_OWNER_PASSWORD` (12+ chars), `PLATFORM_OWNER_NAME` | Creates the first platform owner on deploy if none exists; remove afterwards |
+
+The database user needs `CREATEROLE` the first time migrations run (they create the restricted `duuka_app` role); Neon's
+default owner role has it. **Use a separate Vercel project and a separate Neon database for Duuka POS** — never connect it to
+another application's database.
 
 ### Optional environment variables
 
@@ -36,22 +46,11 @@ loaded into an *empty* database, so real data is never overwritten. Each deploy 
 |---|---|
 | `BUSINESS_NAME`, `BUSINESS_ADDRESS`, `BUSINESS_PHONE`, `RECEIPT_FOOTER` | Defaults for receipts until an administrator saves **Settings** |
 | `DATABASE_URL_UNPOOLED` | Direct connection used for migrations (set automatically by the Neon integration) |
-| `RESET_DEMO_DATA` | See below |
-
-### Resetting to clean demo data
-
-To remove test sales and reload the demo data for a presentation:
-
-1. Add the environment variable `RESET_DEMO_DATA` with the exact value `YES-DELETE-EVERYTHING`.
-2. Redeploy. The build log will show a warning and the database is wiped and re-seeded.
-3. **Immediately delete the variable** — while it is set, *every* deploy wipes the data.
-
-> The reset also deletes any product photos that were uploaded through the app, and reloads the demo illustrations. Skip it
-> if you want to keep them.
+| `DEMO_DATA` | `1` loads demo shops into an EMPTY database (staging only; never production) |
 
 ### Production checklist
 
-- Replace the demo passwords (Users page), or remove the demo accounts, before storing real data.
+- Do not set `DEMO_DATA` in production. Create shops from the **Shops** screen as the platform owner.
 - Make sure the production domain is public (Project → Settings → Deployment Protection) if outsiders must reach it.
 - Back up the database (Neon has point-in-time restore on paid plans; export with `pg_dump` otherwise).
 

@@ -1,5 +1,5 @@
 import "server-only";
-import { db } from "@/lib/db";
+import type { Tx } from "@/lib/tenant";
 import type { PaymentMethod } from "@/generated/prisma/enums";
 import { addDays, kampalaDateString, startOfKampalaDay } from "@/lib/time";
 
@@ -24,8 +24,8 @@ export type SaleFact = {
 
 export const net = (f: Pick<SaleFact, "total" | "refunded">) => f.total - f.refunded;
 
-export async function saleFacts(from: Date, toExclusive: Date): Promise<SaleFact[]> {
-  const rows = await db.$queryRaw<
+export async function saleFacts(tx: Tx, from: Date, toExclusive: Date): Promise<SaleFact[]> {
+  const rows = await tx.$queryRaw<
     { id: string; createdAt: Date; total: number; discount: number; paymentMethod: PaymentMethod; cashierId: string; refunded: number; cogs: bigint }[]
   >`
     SELECT s.id, s."createdAt", s.total, s.discount, s."paymentMethod", s."cashierId",
@@ -97,8 +97,8 @@ export function groupByGrain(facts: SaleFact[], from: Date, toExclusive: Date, g
 export type ProductSales = { id: string; name: string; sku: string; units: number; revenue: number; profit: number };
 
 /** Best sellers by units, net of returns. Revenue is after the sale-level discount, like refunds. */
-export async function bestSellers(from: Date, toExclusive: Date, limit = 50): Promise<ProductSales[]> {
-  const rows = await db.$queryRaw<{ id: string; name: string; sku: string; units: number; revenue: number; cost: number }[]>`
+export async function bestSellers(tx: Tx, from: Date, toExclusive: Date, limit = 50): Promise<ProductSales[]> {
+  const rows = await tx.$queryRaw<{ id: string; name: string; sku: string; units: number; revenue: number; cost: number }[]>`
     SELECT si."productId" AS id, MAX(si."productName") AS name, MAX(si.sku) AS sku,
            SUM(si.quantity - COALESCE(rt.q, 0))::int AS units,
            ROUND(SUM(si."unitPrice" * (si.quantity - COALESCE(rt.q, 0)) * (s.total::numeric / NULLIF(s.subtotal, 0))))::bigint::float8 AS revenue,
@@ -114,8 +114,8 @@ export async function bestSellers(from: Date, toExclusive: Date, limit = 50): Pr
   return rows.map((r) => ({ id: r.id, name: r.name, sku: r.sku, units: r.units, revenue: r.revenue, profit: r.revenue - r.cost }));
 }
 
-export async function lowStockCounts() {
-  const [r] = await db.$queryRaw<{ low: bigint; out: bigint; total: bigint }[]>`
+export async function lowStockCounts(tx: Tx) {
+  const [r] = await tx.$queryRaw<{ low: bigint; out: bigint; total: bigint }[]>`
     SELECT COUNT(*) FILTER (WHERE stock > 0 AND stock <= "minStock") AS low,
            COUNT(*) FILTER (WHERE stock = 0) AS out,
            COUNT(*) AS total
