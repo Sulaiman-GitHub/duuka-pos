@@ -8,6 +8,7 @@ import { useEffect } from "react";
  */
 export function ClearPageCache() {
   useEffect(() => {
+    try { localStorage.removeItem("duuka-till-saved"); } catch { /* ignore */ } // so the next sign-in saves the till again
     if (!("caches" in window)) return;
     caches.keys().then((keys) => keys.filter((k) => k.startsWith("duuka-pages")).forEach((k) => caches.delete(k))).catch(() => {});
   }, []);
