@@ -1,0 +1,260 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  CASHIER
+}
+
+enum PaymentMethod {
+  CASH
+  MOBILE_MONEY
+  CARD
+  BANK_TRANSFER
+}
+
+enum SaleStatus {
+  COMPLETED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum StockMovementType {
+  INITIAL
+  PURCHASE
+  SALE
+  RETURN
+  ADJUSTMENT_ADD
+  ADJUSTMENT_REMOVE
+  DAMAGE
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  RECEIVED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CASHIER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sales          Sale[]
+  stockMovements StockMovement[]
+  returns        SaleReturn[]
+  purchaseOrders PurchaseOrder[]
+  auditLogs      AuditLog[]
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  products    Product[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  barcode     String?  @unique
+  name        String
+  description String?
+  // Images live in the DB (served by /api/products/[id]/image) because serverless hosts have no persistent disk.
+  imageData   Bytes?
+  imageType   String?
+  categoryId  String?
+  // Money is stored as whole UGX (integers) to avoid floating point errors.
+  costPrice   Int
+  sellPrice   Int
+  stock       Int      @default(0)
+  minStock    Int      @default(5)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category       Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
+  poItems        PurchaseOrderItem[]
+
+  @@index([name])
+  @@index([categoryId])
+}
+
+model StockMovement {
+  id         String            @id @default(cuid())
+  productId  String
+  type       StockMovementType
+  // Signed: positive adds stock, negative removes it.
+  quantity   Int
+  stockAfter Int
+  reason     String?
+  reference  String?
+  userId     String?
+  createdAt  DateTime          @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@index([productId, createdAt])
+}
+
+model Sale {
+  id            String        @id @default(cuid())
+  receiptNo     String        @unique
+  cashierId     String
+  customerName  String?
+  customerPhone String?
+  subtotal      Int
+  discount      Int           @default(0)
+  total         Int
+  paymentMethod PaymentMethod
+  amountPaid    Int
+  changeGiven   Int           @default(0)
+  status        SaleStatus    @default(COMPLETED)
+  note          String?
+  createdAt     DateTime      @default(now())
+
+  cashier User         @relation(fields: [cashierId], references: [id])
+  items   SaleItem[]
+  returns SaleReturn[]
+
+  @@index([createdAt])
+  @@index([cashierId, createdAt])
+  @@index([paymentMethod])
+}
+
+model SaleItem {
+  id           String @id @default(cuid())
+  saleId       String
+  productId    String
+  // Snapshots so later price changes never alter historical sales or profit.
+  productName  String
+  sku          String
+  quantity     Int
+  unitPrice    Int
+  unitCost     Int
+  lineDiscount Int    @default(0)
+  lineTotal    Int
+
+  sale    Sale             @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product          @relation(fields: [productId], references: [id])
+  returns SaleReturnItem[]
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+model SaleReturn {
+  id          String   @id @default(cuid())
+  saleId      String
+  processedBy String
+  reason      String?
+  refundTotal Int
+  createdAt   DateTime @default(now())
+
+  sale  Sale             @relation(fields: [saleId], references: [id])
+  user  User             @relation(fields: [processedBy], references: [id])
+  items SaleReturnItem[]
+
+  @@index([saleId])
+}
+
+model SaleReturnItem {
+  id           String @id @default(cuid())
+  returnId     String
+  saleItemId   String
+  quantity     Int
+  refundAmount Int
+
+  saleReturn SaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  saleItem   SaleItem   @relation(fields: [saleItemId], references: [id])
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  purchaseOrders PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id          String              @id @default(cuid())
+  poNumber    String              @unique
+  supplierId  String
+  status      PurchaseOrderStatus @default(DRAFT)
+  total       Int                 @default(0)
+  note        String?
+  invoiceNo   String?
+  createdById String
+  createdAt   DateTime            @default(now())
+  receivedAt  DateTime?
+
+  supplier  Supplier            @relation(fields: [supplierId], references: [id])
+  createdBy User                @relation(fields: [createdById], references: [id])
+  items     PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id          String @id @default(cuid())
+  orderId     String
+  productId   String
+  quantity    Int
+  unitCost    Int
+  receivedQty Int    @default(0)
+
+  order   PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product       @relation(fields: [productId], references: [id])
+}
+
+// One row per Kampala day; incremented atomically so concurrent sales never collide on a receipt number.
+model ReceiptCounter {
+  day  String @id // yyyy-mm-dd
+  last Int
+}
+
+// Single-row table (id = "main") holding shop-wide settings an admin can edit.
+model ShopSettings {
+  id                        String   @id @default("main")
+  name                      String
+  address                   String
+  phone                     String
+  receiptFooter             String
+  cashierMaxDiscountPercent Int      @default(10)
+  updatedAt                 DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String?
+  entityId  String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+}

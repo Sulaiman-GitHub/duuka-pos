@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-500: #4f46e5;
+  --color-brand-600: #4338ca;
+  --color-brand-700: #3730a3;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}
+
+/* Data-viz tokens (single-series charts use slot 1 of the reference palette). */
+:root {
+  --viz-series-1: #2a78d6;
+  --viz-series-1-hover: #5598e7;
+  --viz-grid: #e5e7eb;
+  --viz-surface: #ffffff;
+  --viz-text-primary: #0f172a;
+  --viz-text-secondary: #475569;
+  --viz-text-muted: #64748b;
+}
