@@ -97,6 +97,7 @@ model User {
   returns        SaleReturn[]
   purchaseOrders PurchaseOrder[]
   auditLogs      AuditLog[]
+  authTokens     AuthToken[]
 
   @@index([shopId, role])
 }
@@ -323,4 +324,25 @@ model ReceiptCounter {
   shop Shop @relation(fields: [shopId], references: [id])
 
   @@id([shopId, day])
+}
+
+enum TokenPurpose {
+  INVITE
+  RESET
+}
+
+// One-time links for setting or resetting a password. Only a SHA-256 hash of the token is stored. Never read by shop
+// code: it is reached only through platform-level access (see src/lib/tokens.ts).
+model AuthToken {
+  id        String       @id @default(cuid())
+  userId    String
+  purpose   TokenPurpose
+  tokenHash String       @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
 }

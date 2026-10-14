@@ -168,7 +168,7 @@ no persistent disk.
 
 ## Testing
 
-`npm test` runs **87 tests** (Vitest).
+`npm test` runs **93 tests** (Vitest).
 
 | Suite | Covers |
 |---|---|
@@ -199,5 +199,5 @@ login lockout, phone layouts) during development.
   `mysql2`. No patched 7.x release exists at the time of writing; the 8.x line is a release candidate with a different CLI.
 - **Parked sales** are stored per browser (`localStorage`), not on the server.
 - **PDF export** relies on the browser's *Save as PDF*; there is no server-side PDF generator.
-- **Currency** is stored per shop but formatting is still UGX-oriented; multi-currency display is a Phase 2 item.
+- **Currency** is stored per shop but formatting is still UGX-oriented; the platform owner picks it per shop (UGX, KES, TZS, RWF) and it is locked once the shop has recorded sales, because amounts are stored as whole units without a currency tag.
 - **Sessions** are stateless JWTs: a stolen cookie works until it expires (12 h) or the user is deactivated.

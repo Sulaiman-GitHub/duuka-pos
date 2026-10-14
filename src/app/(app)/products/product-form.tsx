@@ -1,5 +1,6 @@
 "use client";
 
+import { useCurrency } from "@/components/currency";
 import Link from "next/link";
 import { useActionState } from "react";
 import { Alert, Button, Field, inputCls } from "@/components/ui";
@@ -17,6 +18,7 @@ export function ProductForm({
   product?: Product;
   categories: { id: string; name: string }[];
 }) {
+  const currency = useCurrency();
   const [state, formAction, pending] = useActionState<ProductFormState, FormData>(action, {});
   const fe = state.fieldErrors ?? {};
   const lossError = fe.sellPrice?.includes("below cost");
@@ -47,10 +49,10 @@ export function ProductForm({
         <Field label="Description" error={fe.description}>
           <input name="description" defaultValue={v("description", product?.description)} className={inputCls} />
         </Field>
-        <Field label="Buying cost (UGX) *" error={fe.costPrice}>
+        <Field label={`Buying cost (${currency}) *`} error={fe.costPrice}>
           <input name="costPrice" type="number" min={0} step={1} defaultValue={v("costPrice", product?.costPrice ?? 0)} required className={inputCls} />
         </Field>
-        <Field label="Selling price (UGX) *" error={fe.sellPrice}>
+        <Field label={`Selling price (${currency}) *`} error={fe.sellPrice}>
           <input name="sellPrice" type="number" min={0} step={1} defaultValue={v("sellPrice", product?.sellPrice ?? 0)} required className={inputCls} />
         </Field>
         <Field label={product ? "Stock quantity" : "Opening stock"} error={fe.stock} hint={product ? "Changing this records a stock adjustment" : undefined}>

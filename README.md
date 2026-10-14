@@ -65,7 +65,7 @@ Deployment guide: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Database: [docs/DATA
 | Phase | Goal | Contents |
 |---|---|---|
 | **1 · Multi-shop core** ✅ | Many shops, fully isolated | `Shop` (tenant) model and `shopId` on every table; per-shop uniqueness; shop-scoped data access plus PostgreSQL row-level security; cross-shop isolation tests; shop sign-up; owners invite their own managers and cashiers; category templates ("what do you sell?") |
-| **2 · Owner experience** | Self-service | Password reset and invitations by email, per-shop settings and currency, platform admin console |
+| **2 · Owner experience** ✅ | Self-service | Password reset and invitations by email (or copyable link), per-shop currency, platform console with activity tiles |
 | **3 · Commercial** | Run it as a business | Plans and billing (local payment providers), usage limits, terms and privacy policy, monitoring and backups |
 | **4 · Field-ready** | Fit real shops | Offline mode with sync, receipt-printer support, automatic Mobile Money confirmation, tax-receipt integration |
 

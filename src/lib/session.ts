@@ -1,3 +1,4 @@
+import { DEFAULT_CURRENCY } from "@/lib/money";
 import "server-only";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
@@ -34,7 +35,7 @@ export async function destroySession() {
   (await cookies()).delete(COOKIE);
 }
 
-export type SessionUser = { id: string; name: string; email: string; role: Role; shopId: string | null; shopName: string | null };
+export type SessionUser = { id: string; name: string; email: string; role: Role; shopId: string | null; shopName: string | null; currency: string };
 /** A signed-in member of a shop (admin, manager or cashier). */
 export type ShopUser = SessionUser & { shopId: string; shopName: string };
 
@@ -48,12 +49,12 @@ export const getUser = cache(async (): Promise<SessionUser | null> => {
     const user = await asPlatform((tx) =>
       tx.user.findUnique({
         where: { id: String(payload.uid) },
-        select: { id: true, name: true, email: true, role: true, isActive: true, shop: { select: { id: true, name: true, isActive: true } } },
+        select: { id: true, name: true, email: true, role: true, isActive: true, shop: { select: { id: true, name: true, isActive: true, currency: true } } },
       }),
     );
     if (!user || !user.isActive) return null;
     if (user.role !== "PLATFORM_OWNER" && !user.shop?.isActive) return null; // a suspended shop locks out all its staff
-    return { id: user.id, name: user.name, email: user.email, role: user.role, shopId: user.shop?.id ?? null, shopName: user.shop?.name ?? null };
+    return { id: user.id, name: user.name, email: user.email, role: user.role, shopId: user.shop?.id ?? null, shopName: user.shop?.name ?? null, currency: user.shop?.currency ?? DEFAULT_CURRENCY };
   } catch {
     return null;
   }

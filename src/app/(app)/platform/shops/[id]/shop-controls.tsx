@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useTransition } from "react";
+import { CURRENCIES } from "@/lib/money";
 import { Alert, Button, Field, inputCls } from "@/components/ui";
 import { resetShopUserPassword, setShopActive, updateShop, type PlatformFormState } from "../../actions";
 
@@ -14,7 +15,7 @@ export function SuspendButton({ id, active }: { id: string; active: boolean }) {
   );
 }
 
-export function ShopDetailsForm({ id, shop }: { id: string; shop: { name: string; address: string; phone: string } }) {
+export function ShopDetailsForm({ id, shop }: { id: string; shop: { name: string; address: string; phone: string; currency: string } }) {
   const [state, action, pending] = useActionState<PlatformFormState, FormData>(updateShop.bind(null, id), {});
   return (
     <form action={action} className="space-y-3">
@@ -23,6 +24,11 @@ export function ShopDetailsForm({ id, shop }: { id: string; shop: { name: string
       <Field label="Shop name"><input name="shopName" required defaultValue={shop.name} className={inputCls} /></Field>
       <Field label="Address"><input name="address" defaultValue={shop.address} className={inputCls} /></Field>
       <Field label="Phone"><input name="phone" defaultValue={shop.phone} className={inputCls} /></Field>
+      <Field label="Currency" hint="Can only be changed before the shop records its first sale">
+        <select name="currency" defaultValue={shop.currency} className={inputCls}>
+          {Object.entries(CURRENCIES).map(([k, n]) => <option key={k} value={k}>{k} — {n}</option>)}
+        </select>
+      </Field>
       <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
     </form>
   );

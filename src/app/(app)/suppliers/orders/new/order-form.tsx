@@ -4,13 +4,14 @@ import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Alert, Button, Field, inputCls } from "@/components/ui";
-import { formatUGX } from "@/lib/money";
+import { useMoney } from "@/components/currency";
 import { createPurchaseOrder } from "../../actions";
 
 type Product = { id: string; name: string; sku: string; costPrice: number; stock: number; minStock: number };
 type Line = { productId: string; quantity: number; unitCost: number };
 
 export function OrderForm({ suppliers, products, supplierId }: { suppliers: { id: string; name: string }[]; products: Product[]; supplierId?: string }) {
+  const money = useMoney();
   const router = useRouter();
   const byId = new Map(products.map((p) => [p.id, p]));
   const [supplier, setSupplier] = useState(supplierId ?? "");
@@ -70,14 +71,14 @@ export function OrderForm({ suppliers, products, supplierId }: { suppliers: { id
                   <td className="px-3 py-2"><div className="font-medium">{p.name}</div><div className="text-xs text-slate-500">{p.stock} in stock · min {p.minStock}</div></td>
                   <td className="px-3 py-2 text-right"><input type="number" min={1} value={l.quantity} onChange={(e) => patch(l.productId, { quantity: Math.max(1, parseInt(e.target.value, 10) || 1) })} className={`${inputCls} !w-24 text-right`} aria-label={`Quantity of ${p.name}`} /></td>
                   <td className="px-3 py-2 text-right"><input type="number" min={0} value={l.unitCost} onChange={(e) => patch(l.productId, { unitCost: Math.max(0, parseInt(e.target.value, 10) || 0) })} className={`${inputCls} !w-28 text-right`} aria-label={`Unit cost of ${p.name}`} /></td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{formatUGX(l.quantity * l.unitCost)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{money(l.quantity * l.unitCost)}</td>
                   <td className="px-2 text-right"><button aria-label={`Remove ${p.name}`} onClick={() => setLines((ls) => ls.filter((x) => x.productId !== l.productId))} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button></td>
                 </tr>
               );
             })}
             {lines.length === 0 && <tr><td colSpan={5} className="px-3 py-8 text-center text-slate-500">No products added yet.</td></tr>}
           </tbody>
-          {lines.length > 0 && <tfoot className="bg-slate-50 font-semibold"><tr><td colSpan={3} className="px-3 py-2 text-right">Order total</td><td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{formatUGX(total)}</td><td /></tr></tfoot>}
+          {lines.length > 0 && <tfoot className="bg-slate-50 font-semibold"><tr><td colSpan={3} className="px-3 py-2 text-right">Order total</td><td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{money(total)}</td><td /></tr></tfoot>}
         </table>
       </div>
 

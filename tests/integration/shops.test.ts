@@ -19,6 +19,16 @@ describe.skipIf(!up)("creating a shop (platform owner)", () => {
     expect(await withShop(shopId, (tx) => tx.auditLog.count({ where: { action: "shop.create" } }))).toBe(1);
   });
 
+  it("stores the shop's currency (UGX by default) and can create an admin who has not chosen a password yet", async () => {
+    const owner = await makeUser(null, "PLATFORM_OWNER");
+    const a = await asPlatform((tx) => createShopWithAdmin(tx, owner.id, { ...base, adminPassword: null, currency: "KES" }));
+    const b = await asPlatform((tx) => createShopWithAdmin(tx, owner.id, { ...base, adminEmail: "b@y.test" }));
+    expect((await withShop(a.shopId, (tx) => tx.shop.findUniqueOrThrow({ where: { id: a.shopId } }))).currency).toBe("KES");
+    expect((await withShop(b.shopId, (tx) => tx.shop.findUniqueOrThrow({ where: { id: b.shopId } }))).currency).toBe("UGX");
+    const placeholder = (await withShop(a.shopId, (tx) => tx.user.findUniqueOrThrow({ where: { id: a.adminId } }))).passwordHash;
+    expect(placeholder).toMatch(/^\$2[aby]\$/); // a real (random, unknowable) hash, so the account can't be entered until the link is used
+  });
+
   it("merges the categories of several business types without duplicates", async () => {
     const owner = await makeUser(null, "PLATFORM_OWNER");
     const { shopId } = await asPlatform((tx) => createShopWithAdmin(tx, owner.id, { ...base, adminEmail: "x@y.test", businessTypes: ["electronics", "stationery", "general"] }));

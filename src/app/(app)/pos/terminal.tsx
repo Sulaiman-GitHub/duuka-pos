@@ -5,7 +5,7 @@ import { Minus, Plus, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Alert, Button, inputCls } from "@/components/ui";
-import { formatUGX } from "@/lib/money";
+import { useCurrency, useMoney } from "@/components/currency";
 import { completeSale } from "./actions";
 import { useHeldSales, type HeldSale } from "./held";
 
@@ -20,6 +20,8 @@ const METHODS: { key: Method; label: string }[] = [
 ];
 
 export function PosTerminal({ products, categories, maxDiscountPercent }: { products: Product[]; categories: { id: string; name: string }[]; maxDiscountPercent: number }) {
+  const money = useMoney();
+  const currency = useCurrency();
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -148,7 +150,7 @@ export function PosTerminal({ products, categories, maxDiscountPercent }: { prod
                 <div className="mb-2 flex aspect-[3/2] w-full items-center justify-center rounded-lg bg-slate-100 text-lg font-semibold text-slate-400">{p.name.slice(0, 2).toUpperCase()}</div>
               )}
               <span className="line-clamp-2 min-h-[2.5rem] text-sm font-medium">{p.name}</span>
-              <span className="mt-1 text-sm font-semibold text-brand-600">{formatUGX(p.sellPrice)}</span>
+              <span className="mt-1 text-sm font-semibold text-brand-600">{money(p.sellPrice)}</span>
               <span className={clsx("text-xs", p.stock === 0 ? "text-red-600" : p.stock <= 5 ? "text-amber-600" : "text-slate-500")}>{p.stock === 0 ? "Out of stock" : `${p.stock} in stock`}</span>
             </button>
           ))}
@@ -173,7 +175,7 @@ export function PosTerminal({ products, categories, maxDiscountPercent }: { prod
                 const sum = Object.entries(h.cart).reduce((t, [id, q]) => t + (byId.get(id)?.sellPrice ?? 0) * q, 0);
                 return (
                   <li key={h.id} className="flex items-center justify-between gap-2">
-                    <span className="min-w-0 truncate">{h.customerName || "Walk-in"} · {n} item{n === 1 ? "" : "s"} · {formatUGX(sum)}</span>
+                    <span className="min-w-0 truncate">{h.customerName || "Walk-in"} · {n} item{n === 1 ? "" : "s"} · {money(sum)}</span>
                     <span className="flex shrink-0 gap-2">
                       <button onClick={() => resume(h)} className="text-brand-600 hover:underline">Resume</button>
                       <button onClick={() => { if (confirm("Discard this held sale?")) removeHeld(h.id); }} className="text-red-600 hover:underline">Discard</button>
@@ -189,14 +191,14 @@ export function PosTerminal({ products, categories, maxDiscountPercent }: { prod
             <div key={p.id} className="flex items-center gap-2 px-4 py-2.5">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{p.name}</div>
-                <div className="text-xs text-slate-500">{formatUGX(p.sellPrice)} each</div>
+                <div className="text-xs text-slate-500">{money(p.sellPrice)} each</div>
               </div>
               <div className="flex items-center gap-1">
                 <button aria-label="Decrease" onClick={() => setQty(p.id, quantity - 1)} className="rounded border p-1 hover:bg-slate-50"><Minus size={14} /></button>
                 <input aria-label="Quantity" value={quantity} onChange={(e) => setQty(p.id, parseInt(e.target.value, 10) || 0)} className="w-10 rounded border py-1 text-center text-sm" inputMode="numeric" />
                 <button aria-label="Increase" onClick={() => setQty(p.id, quantity + 1)} className="rounded border p-1 hover:bg-slate-50"><Plus size={14} /></button>
               </div>
-              <div className="w-24 text-right text-sm font-medium">{formatUGX(p.sellPrice * quantity)}</div>
+              <div className="w-24 text-right text-sm font-medium">{money(p.sellPrice * quantity)}</div>
               <button aria-label="Remove" onClick={() => setQty(p.id, 0)} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
             </div>
           ))}
@@ -208,14 +210,14 @@ export function PosTerminal({ products, categories, maxDiscountPercent }: { prod
             <span className="text-sm text-slate-600">Discount</span>
             <input value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} inputMode="decimal" placeholder="0" className={`${inputCls} !w-24 !py-1`} />
             <select value={discountType} onChange={(e) => setDiscountType(e.target.value as "amount" | "percent")} className={`${inputCls} !w-20 !py-1`}>
-              <option value="amount">UGX</option><option value="percent">%</option>
+              <option value="amount">{currency}</option><option value="percent">%</option>
             </select>
           </div>
           {discountTooHigh && <p className="text-xs text-red-600">Cashiers can discount at most {maxDiscountPercent}%.</p>}
           <dl className="space-y-1 text-sm">
-            <div className="flex justify-between"><dt className="text-slate-600">Subtotal</dt><dd>{formatUGX(subtotal)}</dd></div>
-            {discount > 0 && <div className="flex justify-between"><dt className="text-slate-600">Discount</dt><dd className="text-red-600">− {formatUGX(discount)}</dd></div>}
-            <div className="flex justify-between border-t pt-2 text-lg font-semibold"><dt>Total</dt><dd>{formatUGX(total)}</dd></div>
+            <div className="flex justify-between"><dt className="text-slate-600">Subtotal</dt><dd>{money(subtotal)}</dd></div>
+            {discount > 0 && <div className="flex justify-between"><dt className="text-slate-600">Discount</dt><dd className="text-red-600">− {money(discount)}</dd></div>}
+            <div className="flex justify-between border-t pt-2 text-lg font-semibold"><dt>Total</dt><dd>{money(total)}</dd></div>
           </dl>
 
           <div className="grid grid-cols-2 gap-2">
@@ -229,7 +231,7 @@ export function PosTerminal({ products, categories, maxDiscountPercent }: { prod
               <div className="flex flex-wrap gap-1">
                 {quick.map((q) => <button key={q} onClick={() => setTendered(String(q))} className="rounded-full border px-2.5 py-0.5 text-xs hover:bg-slate-50">{q === total ? "Exact" : q.toLocaleString()}</button>)}
               </div>
-              {paid > 0 && <div className="flex justify-between text-sm"><span className="text-slate-600">Change</span><span className="font-semibold">{formatUGX(change)}</span></div>}
+              {paid > 0 && <div className="flex justify-between text-sm"><span className="text-slate-600">Change</span><span className="font-semibold">{money(change)}</span></div>}
             </div>
           ) : (
             <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder={method === "MOBILE_MONEY" ? "Transaction ID (optional)" : "Reference (optional)"} className={inputCls} />
@@ -242,12 +244,12 @@ export function PosTerminal({ products, categories, maxDiscountPercent }: { prod
             </div>
           </details>
           {error && <Alert>{error}</Alert>}
-          <Button onClick={pay} disabled={!canPay} className="w-full !py-3 text-base">{pending ? "Processing…" : `Complete sale · ${formatUGX(total)} (F9)`}</Button>
+          <Button onClick={pay} disabled={!canPay} className="w-full !py-3 text-base">{pending ? "Processing…" : `Complete sale · ${money(total)} (F9)`}</Button>
         </div>
       </aside>
       {lines.length > 0 && (
         <div className="no-print fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] xl:hidden">
-          <div><div className="text-xs text-slate-500">{lines.reduce((a, l) => a + l.quantity, 0)} items</div><div className="text-lg font-semibold">{formatUGX(total)}</div></div>
+          <div><div className="text-xs text-slate-500">{lines.reduce((a, l) => a + l.quantity, 0)} items</div><div className="text-lg font-semibold">{money(total)}</div></div>
           <Button onClick={() => document.getElementById("cart")?.scrollIntoView({ behavior: "smooth" })}>Review &amp; pay</Button>
         </div>
       )}

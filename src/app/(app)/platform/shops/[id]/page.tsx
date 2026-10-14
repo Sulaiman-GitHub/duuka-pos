@@ -24,7 +24,7 @@ export default async function ShopPage({ params }: PageProps<"/platform/shops/[i
         actions={<SuspendButton id={shop.id} active={shop.isActive} />} />
       {!shop.isActive && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">This shop is suspended. None of its staff can sign in. Its data is kept.</div>}
       <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
-        <Card className="h-fit p-5"><h2 className="mb-3 font-semibold">Shop details</h2><ShopDetailsForm id={shop.id} shop={{ name: shop.name, address: shop.address, phone: shop.phone }} /></Card>
+        <Card className="h-fit p-5"><h2 className="mb-3 font-semibold">Shop details</h2><ShopDetailsForm id={shop.id} shop={{ name: shop.name, address: shop.address, phone: shop.phone, currency: shop.currency }} /></Card>
         <Card className="overflow-x-auto">
           <h2 className="px-5 pt-5 font-semibold">People</h2>
           <table className="mt-2 w-full min-w-[560px]">

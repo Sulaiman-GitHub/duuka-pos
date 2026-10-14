@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { Card, PageHeader } from "@/components/ui";
 import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
-import { resetPassword, updateUser } from "../../actions";
-import { PasswordForm, UserForm } from "../../user-form";
+import { resetPassword, sendResetLink, updateUser } from "../../actions";
+import { PasswordForm, ResetLinkForm, UserForm } from "../../user-form";
 
 export const metadata: Metadata = { title: "Edit user" };
 
@@ -18,7 +18,7 @@ export default async function EditUserPage({ params }: PageProps<"/users/[id]/ed
       <PageHeader title={`Edit ${u.name}`} subtitle={u.email} />
       <div className="grid max-w-4xl gap-4 lg:grid-cols-2">
         <Card className="p-6"><UserForm action={updateUser.bind(null, id)} user={u} /></Card>
-        <Card className="h-fit p-6"><h2 className="mb-3 font-semibold">Reset password</h2><PasswordForm action={resetPassword.bind(null, id)} /></Card>
+        <Card className="h-fit p-6"><h2 className="mb-3 font-semibold">Reset password</h2><ResetLinkForm action={sendResetLink.bind(null, id)} /><hr className="my-5" /><p className="mb-2 text-sm font-medium">Or set one yourself</p><PasswordForm action={resetPassword.bind(null, id)} /></Card>
       </div>
     </>
   );

@@ -5,7 +5,7 @@ import { Badge, Card } from "@/components/ui";
 import { getSettings } from "@/lib/settings";
 import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
-import { formatUGX } from "@/lib/money";
+import { moneyFor } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/time";
 import { STATUS_TONE } from "../../status";
 import { OrderActions } from "./order-actions";
@@ -15,6 +15,7 @@ export const metadata: Metadata = { title: "Purchase order" };
 
 export default async function OrderPage({ params }: PageProps<"/suppliers/orders/[id]">) {
   const user = await pageGuard("suppliers.manage");
+  const money = moneyFor(user.currency);
   const { id } = await params;
   const business = await getSettings(user.shopId);
   const po = await withShop(user.shopId, (db) => db.purchaseOrder.findUnique({ where: { id }, include: { supplier: true, createdBy: { select: { name: true } }, items: { include: { product: { select: { name: true, sku: true } } }, orderBy: { product: { name: "asc" } } } } }));
@@ -44,10 +45,10 @@ export default async function OrderPage({ params }: PageProps<"/suppliers/orders
             {po.items.map((i) => (
               <tr key={i.id}><td className="py-2"><div className="font-medium">{i.product.name}</div><div className="text-xs text-slate-500">{i.product.sku}</div></td>
                 <td className="py-2 text-right tabular-nums">{i.quantity}</td><td className="py-2 text-right tabular-nums">{i.receivedQty}</td>
-                <td className="py-2 text-right tabular-nums">{formatUGX(i.unitCost)}</td><td className="py-2 text-right tabular-nums">{formatUGX(i.quantity * i.unitCost)}</td></tr>
+                <td className="py-2 text-right tabular-nums">{money(i.unitCost)}</td><td className="py-2 text-right tabular-nums">{money(i.quantity * i.unitCost)}</td></tr>
             ))}
           </tbody>
-          <tfoot><tr className="border-t-2 border-slate-300 font-semibold"><td colSpan={4} className="py-2 text-right">Total</td><td className="py-2 text-right tabular-nums">{formatUGX(po.total)}</td></tr></tfoot>
+          <tfoot><tr className="border-t-2 border-slate-300 font-semibold"><td colSpan={4} className="py-2 text-right">Total</td><td className="py-2 text-right tabular-nums">{money(po.total)}</td></tr></tfoot>
         </table>
       </Card>
       {canReceive && (

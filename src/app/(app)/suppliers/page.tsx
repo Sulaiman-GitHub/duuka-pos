@@ -3,13 +3,14 @@ import Link from "next/link";
 import { Badge, Card, PageHeader, td, th } from "@/components/ui";
 import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
-import { formatUGX } from "@/lib/money";
+import { moneyFor } from "@/lib/money";
 import { SupplierTabs } from "./tabs";
 
 export const metadata: Metadata = { title: "Suppliers" };
 
 export default async function SuppliersPage() {
   const user = await pageGuard("suppliers.manage");
+  const money = moneyFor(user.currency);
   const suppliers = await withShop(user.shopId, (db) => db.supplier.findMany({ orderBy: [{ isActive: "desc" }, { name: "asc" }], include: { _count: { select: { purchaseOrders: true } }, purchaseOrders: { where: { status: { not: "CANCELLED" } }, select: { total: true } } } }));
   return (
     <>
@@ -25,7 +26,7 @@ export default async function SuppliersPage() {
                 <td className={td}><div className="font-medium">{s.name}</div><div className="text-xs text-slate-500">{s.address}</div></td>
                 <td className={td}><div>{s.phone ?? "—"}</div><div className="text-xs text-slate-500">{s.email}</div></td>
                 <td className={`${td} text-right tabular-nums`}>{s._count.purchaseOrders}</td>
-                <td className={`${td} whitespace-nowrap text-right tabular-nums`}>{formatUGX(s.purchaseOrders.reduce((t, o) => t + o.total, 0))}</td>
+                <td className={`${td} whitespace-nowrap text-right tabular-nums`}>{money(s.purchaseOrders.reduce((t, o) => t + o.total, 0))}</td>
                 <td className={td}>{s.isActive ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}</td>
                 <td className={`${td} text-right`}><Link href={`/suppliers/${s.id}/edit`} className="text-brand-500 hover:underline">Edit</Link></td>
               </tr>

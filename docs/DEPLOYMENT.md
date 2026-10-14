@@ -40,6 +40,13 @@ The database user needs `CREATEROLE` the first time migrations run (they create 
 default owner role has it. **Use a separate Vercel project and a separate Neon database for Duuka POS** — never connect it to
 another application's database.
 
+### Email (optional, recommended)
+
+Invitations and password resets are sent with [Resend](https://resend.com). Set `RESEND_API_KEY` and `MAIL_FROM` (a sender on a
+domain you have verified with Resend), and optionally `APP_URL` (the public address used in links). If they are not set,
+nothing breaks: the app shows each link on screen for the administrator to pass on. Invitation links last 7 days and
+reset links 1 hour; each works once.
+
 ### Optional environment variables
 
 | Variable | Purpose |

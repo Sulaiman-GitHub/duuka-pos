@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Badge, Card, PageHeader, td, th } from "@/components/ui";
 import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
-import { formatUGX } from "@/lib/money";
+import { moneyFor } from "@/lib/money";
 import { formatDate } from "@/lib/time";
 import { STATUS_TONE } from "../status";
 import { SupplierTabs } from "../tabs";
@@ -12,6 +12,7 @@ export const metadata: Metadata = { title: "Purchase orders" };
 
 export default async function OrdersPage() {
   const user = await pageGuard("suppliers.manage");
+  const money = moneyFor(user.currency);
   const orders = await withShop(user.shopId, (db) => db.purchaseOrder.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { supplier: { select: { name: true } }, items: { select: { quantity: true, receivedQty: true } } } }));
   return (
     <>
@@ -30,7 +31,7 @@ export default async function OrdersPage() {
                   <td className={td}>{o.supplier.name}</td>
                   <td className={`${td} whitespace-nowrap`}>{formatDate(o.createdAt)}</td>
                   <td className={`${td} text-right tabular-nums`}>{got} / {ordered}</td>
-                  <td className={`${td} whitespace-nowrap text-right tabular-nums`}>{formatUGX(o.total)}</td>
+                  <td className={`${td} whitespace-nowrap text-right tabular-nums`}>{money(o.total)}</td>
                   <td className={td}><Badge tone={STATUS_TONE[o.status]}>{o.status.charAt(0) + o.status.slice(1).toLowerCase()}</Badge></td>
                 </tr>
               );

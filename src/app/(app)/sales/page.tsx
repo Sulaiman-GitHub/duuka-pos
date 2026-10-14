@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Badge, Button, Card, PageHeader, inputCls, td, tdNum, th } from "@/components/ui";
 import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
-import { formatNumber, formatUGX } from "@/lib/money";
+import { formatNumber, moneyFor } from "@/lib/money";
 import { can } from "@/lib/permissions";
 import { addDays, formatDateTime, parseKampalaDate } from "@/lib/time";
 import type { Prisma } from "@/generated/prisma/client";
@@ -15,6 +15,7 @@ const METHOD_LABEL: Record<string, string> = { CASH: "Cash", MOBILE_MONEY: "Mobi
 
 export default async function SalesPage({ searchParams }: PageProps<"/sales">) {
   const user = await pageGuard("sales.view");
+  const money = moneyFor(user.currency);
   const viewAll = can(user.role, "sales.viewAll");
   const sp = await searchParams;
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : "");
@@ -45,7 +46,7 @@ export default async function SalesPage({ searchParams }: PageProps<"/sales">) {
 
   return (
     <>
-      <PageHeader title="Sales" subtitle={`${formatNumber(count)} transaction${count === 1 ? "" : "s"} · ${formatUGX(agg._sum.total ?? 0)}`} />
+      <PageHeader title="Sales" subtitle={`${formatNumber(count)} transaction${count === 1 ? "" : "s"} · ${money(agg._sum.total ?? 0)}`} />
       <form className="mb-4 flex flex-wrap items-end gap-2">
         <input name="q" defaultValue={q} placeholder="Receipt no., customer or product…" className={`${inputCls} max-w-xs`} />
         <input type="date" name="from" defaultValue={str("from")} className={`${inputCls} max-w-[10rem]`} aria-label="From date" />
@@ -82,7 +83,7 @@ export default async function SalesPage({ searchParams }: PageProps<"/sales">) {
                 <td className={td}>{s.cashier.name}</td>
                 <td className={tdNum}>{s._count.items}</td>
                 <td className={td}>{METHOD_LABEL[s.paymentMethod]}</td>
-                <td className={`${tdNum} font-medium`}>{formatUGX(s.total)}</td>
+                <td className={`${tdNum} font-medium`}>{money(s.total)}</td>
                 <td className={td}>{s.status === "COMPLETED" ? <Badge tone="green">Completed</Badge> : s.status === "REFUNDED" ? <Badge tone="red">Refunded</Badge> : <Badge tone="amber">Part refunded</Badge>}</td>
               </tr>
             ))}

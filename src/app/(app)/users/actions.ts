@@ -4,12 +4,15 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { randomBytes } from "node:crypto";
 import { audit } from "@/lib/audit";
+import { getSettings } from "@/lib/settings";
+import { issueLink } from "@/lib/tokens";
 import { STAFF_ROLES } from "@/lib/permissions";
 import { requirePermission } from "@/lib/session";
 import { asPlatform, withShop, type Tx } from "@/lib/tenant";
 
-export type UserFormState = { error?: string; ok?: string; values?: Record<string, string> };
+export type UserFormState = { error?: string; ok?: string; link?: string; values?: Record<string, string> };
 
 const echo = (fd: FormData) => Object.fromEntries([...fd.entries()].filter(([, v]) => typeof v === "string")) as Record<string, string>;
 const password = z.string().min(8, "Password must be at least 8 characters").max(72, "Password is too long");
@@ -19,7 +22,9 @@ const base = { name: z.string().trim().min(2, "Name is required").max(80), role:
 export async function createUser(_p: UserFormState, fd: FormData): Promise<UserFormState> {
   const me = await requirePermission("users.manage");
   const values = { ...echo(fd), password: "" };
-  const parsed = z.object({ ...base, email: z.string().trim().toLowerCase().email("Enter a valid email"), password }).safeParse(Object.fromEntries(fd));
+  // Blank password = send an invitation link so the person chooses their own.
+  const invite = !String(fd.get("password") ?? "");
+  const parsed = z.object({ ...base, email: z.string().trim().toLowerCase().email("Enter a valid email"), password: invite ? z.string() : password }).safeParse(Object.fromEntries(fd));
   if (!parsed.success) return { error: parsed.error.issues[0].message, values };
 
   // An email belongs to exactly one shop across the whole platform, so the uniqueness check must look at every shop.
@@ -27,18 +32,25 @@ export async function createUser(_p: UserFormState, fd: FormData): Promise<UserF
   const taken = await asPlatform((tx) => tx.user.findUnique({ where: { email: parsed.data.email }, select: { id: true } }));
   if (taken) return { error: "That email address is already in use.", values };
 
-  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  // An invited person gets an unguessable placeholder password until they follow their link.
+  const passwordHash = await bcrypt.hash(invite ? randomBytes(24).toString("base64url") : parsed.data.password, 10);
+  let userId: string;
   try {
-    await withShop(me.shopId, async (tx) => {
+    userId = await withShop(me.shopId, async (tx) => {
       const u = await tx.user.create({ data: { shopId: me.shopId, name: parsed.data.name, email: parsed.data.email, role: parsed.data.role, passwordHash } });
-      await audit(tx, me.shopId, me.id, "user.create", "User", u.id, `${u.email} (${u.role})`);
+      await audit(tx, me.shopId, me.id, invite ? "user.invite" : "user.create", "User", u.id, `${u.email} (${u.role})`);
+      return u.id;
     });
   } catch (e) {
     if ((e as { code?: string }).code === "P2002") return { error: "That email address is already in use.", values };
     throw e;
   }
   revalidatePath("/users");
-  redirect("/users");
+  if (!invite) redirect("/users");
+  const { url, sent } = await issueLink(userId, "INVITE", { email: parsed.data.email, name: parsed.data.name }, (await getSettings(me.shopId)).name);
+  return sent
+    ? { ok: `Invitation emailed to ${parsed.data.email}. The link is valid for 7 days.` }
+    : { ok: "User created. Email isn't set up yet, so send this link to them yourself (valid for 7 days):", link: url };
 }
 
 /** An admin may not lock themselves out, and a shop must always keep at least one active admin. */
@@ -83,4 +95,14 @@ export async function resetPassword(id: string, _p: UserFormState, fd: FormData)
   });
   if (!updated) return { error: "User not found." };
   return { ok: "Password updated." };
+}
+
+/** Sends (or shows) a fresh set-password link for a member of the caller's shop. */
+export async function sendResetLink(id: string): Promise<UserFormState> {
+  const me = await requirePermission("users.manage");
+  const u = await withShop(me.shopId, (tx) => tx.user.findUnique({ where: { id }, select: { id: true, name: true, email: true, isActive: true } }));
+  if (!u || !u.isActive) return { error: "User not found or inactive." };
+  await withShop(me.shopId, (tx) => audit(tx, me.shopId, me.id, "user.reset_link", "User", id));
+  const { url, sent } = await issueLink(u.id, "RESET", u, (await getSettings(me.shopId)).name);
+  return sent ? { ok: `Reset link emailed to ${u.email}.` } : { ok: "Email isn't set up yet. Send this link to them yourself (valid for 1 hour):", link: url };
 }

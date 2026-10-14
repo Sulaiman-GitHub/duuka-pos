@@ -6,7 +6,7 @@ import { BarList, TrendChart } from "@/components/charts";
 import { bestSellers, groupByGrain, lowStockCounts, saleFacts, sumFacts, net } from "@/lib/analytics";
 import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
-import { formatNumber, formatUGX } from "@/lib/money";
+import { formatNumber, moneyFor } from "@/lib/money";
 import { addDays, startOfKampalaDay } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -15,6 +15,7 @@ const METHOD_LABEL: Record<string, string> = { CASH: "Cash", MOBILE_MONEY: "Mobi
 
 export default async function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   const user = await pageGuard("dashboard.view");
+  const money = moneyFor(user.currency);
   const sp = await searchParams;
   const days = RANGES.some((r) => r.days === Number(sp.range)) ? Number(sp.range) : 30;
 
@@ -49,9 +50,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
 
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Today</h2>
       <div className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <StatTile label="Today's sales" value={formatUGX(t.net)} delta={{ pct, vs: "yesterday" }} />
-        <StatTile label="Transactions" value={formatNumber(t.transactions)} sub={t.transactions ? `Avg ${formatUGX(Math.round(t.net / t.transactions))}` : "No sales yet today"} />
-        <StatTile label="Gross profit" value={formatUGX(t.profit)} sub={t.net > 0 ? `${((t.profit / t.net) * 100).toFixed(0)}% margin` : undefined} />
+        <StatTile label="Today's sales" value={money(t.net)} delta={{ pct, vs: "yesterday" }} />
+        <StatTile label="Transactions" value={formatNumber(t.transactions)} sub={t.transactions ? `Avg ${money(Math.round(t.net / t.transactions))}` : "No sales yet today"} />
+        <StatTile label="Gross profit" value={money(t.profit)} sub={t.net > 0 ? `${((t.profit / t.net) * 100).toFixed(0)}% margin` : undefined} />
         <StatTile label="Low-stock products" value={String(stock.low + stock.out)} tone={stock.out ? "red" : stock.low ? "amber" : undefined} sub={`${stock.out} out of stock`} />
         <StatTile label="Total products" value={formatNumber(stock.total)} sub="Active products" />
       </div>
@@ -67,11 +68,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       <div className="grid gap-4 xl:grid-cols-2">
         <div className="min-w-0 xl:col-span-2">
           <TrendChart title="Sales over time" seriesName="Net sales"
-            subtitle={`${formatUGX(r.net)} net sales · ${formatNumber(r.transactions)} transactions · ${formatUGX(r.profit)} gross profit (${rangeLabel})`}
+            subtitle={`${money(r.net)} net sales · ${formatNumber(r.transactions)} transactions · ${money(r.profit)} gross profit (${rangeLabel})`}
             data={daily.map((d) => ({ label: d.key, value: d.net }))} />
         </div>
         <BarList title="Best-selling products" subtitle={`Units sold, ${rangeLabel}`} valueName="Units sold" unit="units"
-          items={top.map((p) => ({ label: p.name, value: p.units, note: `${formatUGX(p.revenue)} revenue` }))} />
+          items={top.map((p) => ({ label: p.name, value: p.units, note: `${money(p.revenue)} revenue` }))} />
         <BarList title="Sales by payment method" subtitle={`Net sales, ${rangeLabel}`} valueName="Net sales" showShare items={byMethod} />
         <div className="min-w-0 xl:col-span-2">
           <Card className="p-5">

@@ -5,7 +5,7 @@ import { Alert, Badge } from "@/components/ui";
 import { getSettings } from "@/lib/settings";
 import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
-import { formatUGX } from "@/lib/money";
+import { moneyFor } from "@/lib/money";
 import { can } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/time";
 import { PrintButton } from "./print-button";
@@ -16,6 +16,7 @@ const METHOD_LABEL = { CASH: "Cash", MOBILE_MONEY: "Mobile Money", CARD: "Card",
 
 export default async function ReceiptPage({ params, searchParams }: PageProps<"/sales/[id]">) {
   const user = await pageGuard("sales.view");
+  const money = moneyFor(user.currency);
   const { id } = await params;
   const sp = await searchParams;
   const business = await getSettings(user.shopId);
@@ -65,13 +66,13 @@ export default async function ReceiptPage({ params, searchParams }: PageProps<"/
           </tbody>
         </table>
         <dl className="mt-3 space-y-0.5 border-t border-dashed border-slate-300 pt-3 text-xs">
-          <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatUGX(sale.subtotal)}</dd></div>
-          {sale.discount > 0 && <div className="flex justify-between"><dt>Discount</dt><dd>− {formatUGX(sale.discount)}</dd></div>}
-          <div className="flex justify-between text-base font-bold"><dt>TOTAL</dt><dd>{formatUGX(sale.total)}</dd></div>
-          <div className="flex justify-between"><dt>Paid ({METHOD_LABEL[sale.paymentMethod]})</dt><dd>{formatUGX(sale.amountPaid)}</dd></div>
-          {sale.changeGiven > 0 && <div className="flex justify-between"><dt>Change</dt><dd>{formatUGX(sale.changeGiven)}</dd></div>}
+          <div className="flex justify-between"><dt>Subtotal</dt><dd>{money(sale.subtotal)}</dd></div>
+          {sale.discount > 0 && <div className="flex justify-between"><dt>Discount</dt><dd>− {money(sale.discount)}</dd></div>}
+          <div className="flex justify-between text-base font-bold"><dt>TOTAL</dt><dd>{money(sale.total)}</dd></div>
+          <div className="flex justify-between"><dt>Paid ({METHOD_LABEL[sale.paymentMethod]})</dt><dd>{money(sale.amountPaid)}</dd></div>
+          {sale.changeGiven > 0 && <div className="flex justify-between"><dt>Change</dt><dd>{money(sale.changeGiven)}</dd></div>}
           {sale.note && <div className="flex justify-between"><dt>Ref</dt><dd>{sale.note}</dd></div>}
-          {refunded > 0 && <div className="flex justify-between text-red-600"><dt>Refunded</dt><dd>− {formatUGX(refunded)}</dd></div>}
+          {refunded > 0 && <div className="flex justify-between text-red-600"><dt>Refunded</dt><dd>− {money(refunded)}</dd></div>}
         </dl>
         <p className="mt-5 text-center text-xs text-slate-600">{business.receiptFooter}</p>
       </article>

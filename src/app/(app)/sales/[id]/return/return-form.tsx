@@ -3,12 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Alert, Button, Field, inputCls } from "@/components/ui";
-import { formatUGX } from "@/lib/money";
+import { useMoney } from "@/components/currency";
 import { processReturn } from "../../actions";
 
 type Item = { id: string; name: string; unitPrice: number; remaining: number };
 
 export function ReturnForm({ saleId, subtotal, total, items }: { saleId: string; subtotal: number; total: number; items: Item[] }) {
+  const money = useMoney();
   const router = useRouter();
   const [qty, setQty] = useState<Record<string, number>>({});
   const [reason, setReason] = useState("");
@@ -37,7 +38,7 @@ export function ReturnForm({ saleId, subtotal, total, items }: { saleId: string;
           <div key={i.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
             <div>
               <div className="font-medium">{i.name}</div>
-              <div className="text-xs text-slate-500">{formatUGX(i.unitPrice)} each · {i.remaining} returnable</div>
+              <div className="text-xs text-slate-500">{money(i.unitPrice)} each · {i.remaining} returnable</div>
             </div>
             <input type="number" min={0} max={i.remaining} disabled={i.remaining === 0} value={qty[i.id] ?? 0}
               onChange={(e) => setQty({ ...qty, [i.id]: Math.max(0, Math.min(i.remaining, parseInt(e.target.value, 10) || 0)) })} className={`${inputCls} !w-20 text-center`} aria-label={`Quantity of ${i.name} to return`} />
@@ -48,7 +49,7 @@ export function ReturnForm({ saleId, subtotal, total, items }: { saleId: string;
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={restock} onChange={(e) => setRestock(e.target.checked)} /> Put returned items back into stock</label>
       <div className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3">
         <span className="text-sm text-slate-600">Refund to customer {total !== subtotal && "(discount applied)"}</span>
-        <span className="text-lg font-semibold">{formatUGX(estimate)}</span>
+        <span className="text-lg font-semibold">{money(estimate)}</span>
       </div>
       <Button onClick={submit} disabled={pending || estimate === 0}>{pending ? "Processing…" : "Confirm return & refund"}</Button>
     </div>

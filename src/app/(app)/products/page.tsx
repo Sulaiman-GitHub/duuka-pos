@@ -4,7 +4,7 @@ import { Badge, Card, PageHeader, inputCls, td, tdNum, th, Button } from "@/comp
 import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { can } from "@/lib/permissions";
-import { formatNumber, formatUGX } from "@/lib/money";
+import { formatNumber, moneyFor } from "@/lib/money";
 import type { Prisma } from "@/generated/prisma/client";
 import { RowActions } from "./row-actions";
 
@@ -13,6 +13,7 @@ const PAGE_SIZE = 20;
 
 export default async function ProductsPage({ searchParams }: PageProps<"/products">) {
   const user = await pageGuard("inventory.view");
+  const money = moneyFor(user.currency);
   const canManage = can(user.role, "products.manage");
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
@@ -87,8 +88,8 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
                   </div>
                 </td>
                 <td className={td}>{p.category?.name ?? "—"}</td>
-                <td className={tdNum}>{formatUGX(p.costPrice)}</td>
-                <td className={tdNum}>{formatUGX(p.sellPrice)}</td>
+                <td className={tdNum}>{money(p.costPrice)}</td>
+                <td className={tdNum}>{money(p.sellPrice)}</td>
                 <td className={tdNum}>
                   {p.stock === 0 ? <Badge tone="red">Out of stock</Badge> : p.stock <= p.minStock ? <Badge tone="amber">Low: {p.stock}</Badge> : formatNumber(p.stock)}
                 </td>

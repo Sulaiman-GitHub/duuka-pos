@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button, Card, PageHeader, inputCls } from "@/components/ui";
 import { pageGuard } from "@/lib/guard";
 import { withShop } from "@/lib/tenant";
-import { formatNumber, formatUGX } from "@/lib/money";
+import { formatNumber, moneyFor } from "@/lib/money";
 import { getSettings } from "@/lib/settings";
 import { REPORT_TYPES, buildReport, parseReportParams, type Col } from "@/lib/reports";
 import { addDays, formatDateTime, kampalaDateString, startOfKampalaDay } from "@/lib/time";
@@ -13,14 +13,15 @@ import { PrintButton } from "./print-button";
 
 export const metadata: Metadata = { title: "Reports" };
 
-const fmt = (c: Col, v: string | number | undefined) => {
+const fmt = (c: Col, v: string | number | undefined, money: (n: number) => string) => {
   if (v === undefined || v === "") return "";
   if (typeof v === "string") return v;
-  return c.kind === "money" ? formatUGX(v) : c.kind === "pct" ? `${v}%` : formatNumber(v);
+  return c.kind === "money" ? money(v) : c.kind === "pct" ? `${v}%` : formatNumber(v);
 };
 
 export default async function ReportsPage({ searchParams }: PageProps<"/reports">) {
   const user = await pageGuard("reports.view");
+  const money = moneyFor(user.currency);
   const sp = await searchParams;
   const p = parseReportParams(sp);
   const meta = REPORT_TYPES.find((t) => t.key === p.type)!;
@@ -91,14 +92,14 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
             <tbody className="divide-y divide-slate-100">
               {report.rows.map((r, i) => (
                 <tr key={i} className="print:break-inside-avoid">
-                  {report.columns.map((c) => <td key={c.key} className={clsx("px-4 py-2", right(c) ? "whitespace-nowrap text-right tabular-nums" : "text-left")}>{fmt(c, r[c.key])}</td>)}
+                  {report.columns.map((c) => <td key={c.key} className={clsx("px-4 py-2", right(c) ? "whitespace-nowrap text-right tabular-nums" : "text-left")}>{fmt(c, r[c.key], money)}</td>)}
                 </tr>
               ))}
               {report.rows.length === 0 && <tr><td colSpan={report.columns.length} className="px-4 py-10 text-center text-slate-500">No data for this period.</td></tr>}
             </tbody>
             {report.totals && report.rows.length > 0 && (
               <tfoot className="border-t-2 border-slate-300 bg-slate-50 font-semibold print:bg-transparent">
-                <tr>{report.columns.map((c) => <td key={c.key} className={clsx("px-4 py-2.5", right(c) ? "whitespace-nowrap text-right tabular-nums" : "text-left")}>{fmt(c, report.totals![c.key])}</td>)}</tr>
+                <tr>{report.columns.map((c) => <td key={c.key} className={clsx("px-4 py-2.5", right(c) ? "whitespace-nowrap text-right tabular-nums" : "text-left")}>{fmt(c, report.totals![c.key], money)}</td>)}</tr>
               </tfoot>
             )}
           </table>

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Badge, Button, Card, PageHeader, inputCls, td, tdNum, th } from "@/components/ui";
 import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
-import { formatNumber, formatUGX } from "@/lib/money";
+import { formatNumber, moneyFor } from "@/lib/money";
 import { can } from "@/lib/permissions";
 import type { Prisma } from "@/generated/prisma/client";
 import { InventoryTabs } from "./tabs";
@@ -22,6 +22,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "re
 
 export default async function InventoryPage({ searchParams }: PageProps<"/inventory">) {
   const user = await pageGuard("inventory.view");
+  const money = moneyFor(user.currency);
   const canAdjust = can(user.role, "inventory.adjust");
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
@@ -67,8 +68,8 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
       <InventoryTabs active="stock" canAdjust={canAdjust} />
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Stat label="Units in stock" value={formatNumber(Number(val.units ?? 0))} />
-        <Stat label="Value at cost" value={formatUGX(cost)} />
-        <Stat label="Value at retail" value={formatUGX(retail)} />
+        <Stat label="Value at cost" value={money(cost)} />
+        <Stat label="Value at retail" value={money(retail)} />
         <Stat label="Low stock" value={String(low.low)} tone={Number(low.low) ? "amber" : undefined} />
         <Stat label="Out of stock" value={String(low.out)} tone={Number(low.out) ? "red" : undefined} />
       </div>
@@ -93,7 +94,7 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
                 <td className={td}>{p.category?.name ?? "—"}</td>
                 <td className={tdNum}>{formatNumber(p.stock)}</td>
                 <td className={tdNum}>{p.minStock}</td>
-                <td className={tdNum}>{formatUGX(p.stock * p.costPrice)}</td>
+                <td className={tdNum}>{money(p.stock * p.costPrice)}</td>
                 <td className={td}>{p.stock === 0 ? <Badge tone="red">Out of stock</Badge> : p.stock <= p.minStock ? <Badge tone="amber">Low stock</Badge> : <Badge tone="green">OK</Badge>}</td>
                 {canAdjust && <td className={`${td} text-right`}><Link href={`/inventory/adjust?product=${p.id}`} className="text-brand-500 hover:underline">Adjust</Link></td>}
               </tr>

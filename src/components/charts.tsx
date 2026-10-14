@@ -2,9 +2,9 @@
 
 import clsx from "clsx";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useMoney } from "@/components/currency";
 
-const ugx = new Intl.NumberFormat("en-UG", { maximumFractionDigits: 0 });
-export const full = (n: number) => `UGX ${ugx.format(Math.round(n))}`;
+const num = new Intl.NumberFormat("en-UG", { maximumFractionDigits: 0 });
 export function compact(n: number) {
   const a = Math.abs(n);
   if (a >= 1e9) return `${+(n / 1e9).toFixed(1)}B`;
@@ -68,6 +68,7 @@ export function ChartCard({ title, subtitle, toolbar, children }: { title: strin
 
 // ---------------------------------------------------------------- trend (line + area)
 export function TrendChart({ title, subtitle, seriesName, data }: { title: string; subtitle?: string; seriesName: string; data: { label: string; value: number }[] }) {
+  const money = useMoney();
   const [view, setView] = useState<"chart" | "table">("chart");
   const wrap = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(300);
@@ -112,10 +113,10 @@ export function TrendChart({ title, subtitle, seriesName, data }: { title: strin
   return (
     <ChartCard title={title} subtitle={subtitle} toolbar={<ViewToggle view={view} onChange={setView} />}>
       {view === "table" ? (
-        <DataTable head={["Date", seriesName]} rows={data.map((d) => [d.label, full(d.value)])} />
+        <DataTable head={["Date", seriesName]} rows={data.map((d) => [d.label, money(d.value)])} />
       ) : (
         <div ref={wrap} className="relative">
-          <svg width={width} height={H} role="img" aria-label={`${seriesName} over time, total ${full(total)}. Use left and right arrow keys to read each point.`}
+          <svg width={width} height={H} role="img" aria-label={`${seriesName} over time, total ${money(total)}. Use left and right arrow keys to read each point.`}
             tabIndex={0} onPointerMove={onMove} onPointerLeave={() => setHover(null)} onKeyDown={onKey} onBlur={() => setHover(null)} className="touch-none outline-none focus-visible:ring-2 focus-visible:ring-brand-100">
             {yTicks.map((t) => (
               <g key={t}>
@@ -147,7 +148,7 @@ export function TrendChart({ title, subtitle, seriesName, data }: { title: strin
               <div className="text-slate-500">{active.label}</div>
               <div className="mt-1 flex items-center gap-2">
                 <span className="inline-block h-0.5 w-3" style={{ background: "var(--viz-series-1)" }} />
-                <span className="text-sm font-semibold tabular-nums">{full(active.value)}</span>
+                <span className="text-sm font-semibold tabular-nums">{money(active.value)}</span>
               </div>
               <div className="text-slate-500">{seriesName}</div>
             </div>
@@ -165,7 +166,8 @@ export function BarList({
   // `unit` (not a formatter function) because these props cross the server/client boundary and must be serializable.
   title: string; subtitle?: string; valueName: string; items: { label: string; value: number; note?: string }[]; unit?: "money" | "units"; showShare?: boolean; empty?: string;
 }) {
-  const format = (n: number) => (unit === "units" ? `${ugx.format(n)} units` : full(n));
+  const money = useMoney();
+  const format = (n: number) => (unit === "units" ? `${num.format(n)} units` : money(n));
   const [view, setView] = useState<"chart" | "table">("chart");
   const max = Math.max(1, ...items.map((i) => i.value));
   const total = items.reduce((s, i) => s + i.value, 0);
