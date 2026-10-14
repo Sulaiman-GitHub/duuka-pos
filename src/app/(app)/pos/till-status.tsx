@@ -1,9 +1,12 @@
 "use client";
 
 import clsx from "clsx";
-import { Printer, RefreshCw, WifiOff } from "lucide-react";
+import { RefreshCw, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui";
+import { ReceiptActions } from "@/components/receipt-actions";
+import { ReceiptView } from "@/components/receipt-view";
+import type { ReceiptData } from "@/lib/printing/types";
 import { useMoney } from "@/components/currency";
 import type { FlushOutcome } from "@/lib/offline/sync";
 import type { LocalReceipt, PosCatalog, QueuedSale } from "@/lib/offline/types";
@@ -56,44 +59,22 @@ export function TillStatus({ online, queue, catalog, signedOut, lastSync, onSync
 }
 
 export function LocalReceiptModal({ refNo, receipt, catalog, at, onClose }: { refNo: string; receipt: LocalReceipt; catalog: PosCatalog; at: string; onClose: () => void }) {
-  const money = useMoney();
+  const data: ReceiptData = {
+    shopName: catalog.shopName, address: catalog.address, phone: catalog.phone, footer: catalog.receiptFooter, widthMm: catalog.receiptWidth,
+    ref: refNo, refNote: "PROVISIONAL - final number follows", dateText: new Date(at).toLocaleString("en-GB", { timeZone: "Africa/Kampala" }), cashier: receipt.cashierName, customer: receipt.customerName,
+    lines: receipt.lines.map((l) => ({ ...l, lineTotal: l.quantity * l.unitPrice })),
+    subtotal: receipt.subtotal, discount: receipt.discount, total: receipt.total, paymentLabel: receipt.methodLabel, paid: receipt.paid, change: receipt.change, currency: catalog.currency,
+  };
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/50 p-4" role="dialog" aria-modal="true" aria-label="Receipt">
       <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
         <div className="no-print mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           Saved on this device. It will upload automatically when the connection is back, and then gets its final receipt number.
         </div>
-        <article className="receipt-print font-mono text-sm">
-          <header className="text-center">
-            <h2 className="text-lg font-bold">{catalog.shopName}</h2>
-            <p className="text-xs text-slate-600">{catalog.address}</p>
-            <p className="text-xs text-slate-600">{catalog.phone}</p>
-          </header>
-          <div className="my-3 space-y-0.5 border-y border-dashed border-slate-300 py-2 text-xs">
-            <div className="flex justify-between"><span>Ref</span><span className="font-semibold">{refNo} (provisional)</span></div>
-            <div className="flex justify-between"><span>Date</span><span>{new Date(at).toLocaleString("en-GB", { timeZone: "Africa/Kampala" })}</span></div>
-            <div className="flex justify-between"><span>Cashier</span><span>{receipt.cashierName}</span></div>
-            {receipt.customerName && <div className="flex justify-between"><span>Customer</span><span>{receipt.customerName}</span></div>}
-          </div>
-          <table className="w-full text-xs">
-            <tbody>
-              {receipt.lines.map((l, i) => (
-                <tr key={i} className="align-top"><td className="pr-2">{l.name}<div className="text-slate-500">{l.quantity} × {money(l.unitPrice)}</div></td><td className="text-right">{money(l.quantity * l.unitPrice)}</td></tr>
-              ))}
-            </tbody>
-          </table>
-          <dl className="mt-3 space-y-0.5 border-t border-dashed border-slate-300 pt-2 text-xs">
-            <div className="flex justify-between"><dt>Subtotal</dt><dd>{money(receipt.subtotal)}</dd></div>
-            {receipt.discount > 0 && <div className="flex justify-between"><dt>Discount</dt><dd>− {money(receipt.discount)}</dd></div>}
-            <div className="flex justify-between text-base font-bold"><dt>TOTAL</dt><dd>{money(receipt.total)}</dd></div>
-            <div className="flex justify-between"><dt>Paid ({receipt.methodLabel})</dt><dd>{money(receipt.paid)}</dd></div>
-            {receipt.change > 0 && <div className="flex justify-between"><dt>Change</dt><dd>{money(receipt.change)}</dd></div>}
-          </dl>
-          <p className="mt-3 text-center text-xs text-slate-600">{catalog.receiptFooter}</p>
-        </article>
-        <div className="no-print mt-4 flex gap-2">
-          <Button onClick={() => window.print()} variant="secondary"><Printer size={15} className="mr-1.5 inline" />Print</Button>
-          <Button onClick={onClose} className="flex-1">New sale</Button>
+        <ReceiptView data={data} />
+        <div className="no-print mt-4 space-y-3">
+          <ReceiptActions data={data} autoPrint />
+          <Button onClick={onClose} className="w-full">New sale</Button>
         </div>
       </div>
     </div>

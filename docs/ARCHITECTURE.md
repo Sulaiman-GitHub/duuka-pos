@@ -147,7 +147,8 @@ The point-of-sale screen keeps working with no internet, on phones and PCs (it i
 - **Offline sales are always accepted** because the goods already left the shop. Anything the server would have refused is recorded and **flagged for review** (`Sale.needsReview` + `reviewNote`, shown to managers with a "Mark as reviewed" button): stock gone negative, a discount above the cashier limit, an item deactivated meanwhile, or a total that differs from what the till charged. The price the till showed is honoured only if the product could really have changed after the till last synced; otherwise the database price is used and the sale is flagged.
 - **Receipt numbers:** offline sales get a provisional `OFF-…` reference; the real, sequential receipt number is assigned when the sale uploads.
 - **Identity:** the sale is credited to the cashier who rang it up; only a manager or admin can upload another person's sales. Queued sales stay on the device until they reach the server (signing out does not delete them), and an expired sign-in only pauses the upload.
-- **Scope:** selling is offline-capable; reports, inventory screens, user management and the platform console need a connection.
+- **Scope:** selling is fully offline-capable. Dashboard, sales/receipts, products, inventory and reports open offline from the last copy viewed (with an "offline, may be out of date" banner). Users, settings, audit and platform pages are never saved and need a connection; nothing can be changed offline except selling. Saved page copies are cleared when the sign-in page is shown.
+- **Printing:** receipts are plain data (`ReceiptData`) rendered by one component laid out for 58/80 mm rolls, or turned into ESC/POS bytes (`src/lib/printing/escpos.ts`) for direct USB/Bluetooth printing; see [PRINTERS.md](PRINTERS.md).
 
 ## Time zones
 
@@ -181,7 +182,7 @@ no persistent disk.
 
 ## Testing
 
-`npm test` runs **103 tests** (Vitest).
+`npm test` runs **107 tests** (Vitest).
 
 | Suite | Covers |
 |---|---|

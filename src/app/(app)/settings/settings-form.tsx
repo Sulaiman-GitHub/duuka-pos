@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Alert, Button, Field, inputCls } from "@/components/ui";
 import { saveSettings, type SettingsState } from "./actions";
 
-type S = { name: string; address: string; phone: string; receiptFooter: string; cashierMaxDiscountPercent: number };
+type S = { name: string; address: string; phone: string; receiptFooter: string; cashierMaxDiscountPercent: number; receiptWidth: number };
 
 export function SettingsForm({ settings }: { settings: S }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(saveSettings, {});
@@ -16,6 +16,11 @@ export function SettingsForm({ settings }: { settings: S }) {
       <Field label="Address"><input name="address" required defaultValue={settings.address} className={inputCls} /></Field>
       <Field label="Phone / WhatsApp"><input name="phone" required defaultValue={settings.phone} className={inputCls} /></Field>
       <Field label="Receipt footer message"><input name="receiptFooter" defaultValue={settings.receiptFooter} className={inputCls} /></Field>
+      <Field label="Receipt paper width" hint="The roll in your receipt printer. Most small printers use 58 mm; larger ones use 80 mm. Check the label on the roll.">
+        <select name="receiptWidth" defaultValue={settings.receiptWidth} className={`${inputCls} max-w-[12rem]`}>
+          <option value={58}>58 mm (small)</option><option value={80}>80 mm (standard)</option>
+        </select>
+      </Field>
       <Field label="Maximum discount a cashier can give (%)" hint="Managers and admins are not limited. Applies immediately at the till.">
         <input name="cashierMaxDiscountPercent" type="number" min={0} max={100} step={1} required defaultValue={settings.cashierMaxDiscountPercent} className={`${inputCls} max-w-[8rem]`} />
       </Field>

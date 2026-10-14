@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { logout } from "@/app/login/actions";
+import { InstallButton } from "@/components/install-button";
 
 const icons = { LayoutDashboard, ShoppingCart, Receipt, Package, Boxes, Truck, BarChart3, Users, History, Settings, Store };
 
@@ -49,6 +50,7 @@ export function Sidebar({ items, user, shopName }: { items: { href: string; labe
             <div className="font-medium">{user.name}</div>
             <div className="text-xs capitalize text-slate-400">{user.role.toLowerCase()}</div>
           </div>
+          <InstallButton />
           <form action={logout}>
             <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white">
               <LogOut size={16} /> Sign out

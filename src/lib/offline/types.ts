@@ -1,7 +1,7 @@
 export type PosProduct = { id: string; name: string; sku: string; barcode: string | null; sellPrice: number; stock: number; categoryId: string | null; hasImage: boolean };
 
 export type PosCatalog = {
-  shopId: string; shopName: string; address: string; phone: string; receiptFooter: string; currency: string;
+  shopId: string; shopName: string; address: string; phone: string; receiptFooter: string; currency: string; receiptWidth: 58 | 80;
   userId: string; userName: string; generatedAt: string; maxDiscountPercent: number;
   products: PosProduct[]; categories: { id: string; name: string }[];
 };

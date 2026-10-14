@@ -2,6 +2,8 @@
  *  - /_next/static/*  : cached on first use (these files never change under the same name)
  *  - product images   : shown from cache, refreshed in the background
  *  - the /pos page    : network first (3.5 s), falls back to the last copy; the product list itself comes from IndexedDB
+ *  - read-only pages  : (dashboard, sales and receipts, products, inventory, reports) network first, then the last copy seen,
+ *                       so a manager can still look things up offline. Users, settings, audit and platform pages are never saved.
  *  - any other page   : network only; when offline, a small page pointing back to the till
  * Nothing under /api is ever cached here, so reports and data are never shown stale by mistake. */
 const VERSION = "v1";
@@ -38,6 +40,25 @@ async function staleWhileRevalidate(cacheName, request) {
   const hit = await cache.match(request);
   const network = fetch(request).then((res) => { if (res.ok) cache.put(request, res.clone()); return res; }).catch(() => undefined);
   return hit || (await network) || new Response("", { status: 504 });
+}
+
+const READ_ONLY = [/^\/dashboard$/, /^\/sales(\/[^/]+)?$/, /^\/products$/, /^\/inventory(\/history)?$/, /^\/reports$/];
+const MAX_SAVED_PAGES = 60;
+
+async function readOnlyPage(request, url) {
+  const cache = await caches.open(PAGES);
+  const key = url.pathname + url.search;
+  try {
+    const res = await Promise.race([fetch(request), new Promise((_, reject) => setTimeout(() => reject(new Error("slow")), 5000))]);
+    if (res.ok && !res.redirected) {
+      await cache.put(key, res.clone());
+      const keys = await cache.keys(); // keep the cache small: drop the oldest copies
+      for (const k of keys.slice(0, Math.max(0, keys.length - MAX_SAVED_PAGES))) if (new URL(k.url).pathname !== "/pos") await cache.delete(k);
+    }
+    return res;
+  } catch {
+    return (await cache.match(key)) || offlineResponse();
+  }
 }
 
 async function posPage(request) {
@@ -81,6 +102,7 @@ self.addEventListener("fetch", (event) => {
   if (/^\/api\/products\/[^/]+\/image/.test(url.pathname)) return void event.respondWith(staleWhileRevalidate(IMAGES, req));
   if (req.mode === "navigate") {
     if (url.pathname === "/pos") return void event.respondWith(posPage(req));
+    if (READ_ONLY.some((re) => re.test(url.pathname))) return void event.respondWith(readOnlyPage(req, url));
     event.respondWith(fetch(req).catch(() => offlineResponse()));
   }
 });

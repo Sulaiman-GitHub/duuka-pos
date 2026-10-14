@@ -16,7 +16,7 @@ export async function buildCatalog(user: ShopUser): Promise<PosCatalog> {
     db.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]));
   return {
-    shopId: user.shopId, shopName: settings.name, address: settings.address, phone: settings.phone, receiptFooter: settings.receiptFooter, currency: settings.currency,
+    shopId: user.shopId, shopName: settings.name, address: settings.address, phone: settings.phone, receiptFooter: settings.receiptFooter, currency: settings.currency, receiptWidth: settings.receiptWidth,
     userId: user.id, userName: user.name, generatedAt: generatedAt.toISOString(),
     maxDiscountPercent: user.role === "CASHIER" ? settings.cashierMaxDiscountPercent : 100,
     products: products.map(({ imageType, ...p }) => ({ ...p, hasImage: !!imageType })),

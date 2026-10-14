@@ -13,6 +13,7 @@ const schema = z.object({
   address: z.string().trim().min(2, "Address is required").max(160),
   phone: z.string().trim().min(3, "Phone is required").max(50),
   receiptFooter: z.string().trim().max(160),
+  receiptWidth: z.coerce.number().refine((w) => w === 58 || w === 80, "Choose 58 mm or 80 mm paper"),
   cashierMaxDiscountPercent: z.coerce.number({ message: "Discount limit must be a number" }).int("Whole numbers only").min(0).max(100),
 });
 

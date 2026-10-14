@@ -59,6 +59,7 @@ model Shop {
   phone                     String   @default("")
   receiptFooter             String   @default("Thank you for shopping with us!")
   cashierMaxDiscountPercent Int      @default(10)
+  receiptWidth              Int      @default(80) // paper width in mm for receipt printers: 58 or 80
   currency                  String   @default("UGX") // reserved: amounts are whole units of this currency
   isActive                  Boolean  @default(true)
   createdAt                 DateTime @default(now())
