@@ -1,5 +1,6 @@
 "use client";
 
+import { productImageUrl } from "@/lib/product-image-url";
 import { useCurrency } from "@/components/currency";
 import Link from "next/link";
 import { useActionState } from "react";
@@ -8,7 +9,7 @@ import type { ProductFormState } from "./actions";
 
 type Product = {
   id: string; name: string; sku: string; barcode: string | null; description: string | null; categoryId: string | null;
-  costPrice: number; sellPrice: number; stock: number; minStock: number; hasImage: boolean;
+  costPrice: number; sellPrice: number; stock: number; minStock: number; hasImage: boolean; imageUpdatedAt?: Date | null;
 };
 
 export function ProductForm({
@@ -68,7 +69,7 @@ export function ProductForm({
           {product?.hasImage && (
             <div className="mt-2 flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/api/products/${product.id}/image`} alt="" className="h-16 w-16 rounded-lg border object-cover" />
+              <img src={productImageUrl(product.id, product.imageUpdatedAt)} alt="" className="h-16 w-16 rounded-lg border object-cover" />
               <label className="flex items-center gap-2 text-sm text-slate-600">
                 <input type="checkbox" name="removeImage" /> Remove current image
               </label>

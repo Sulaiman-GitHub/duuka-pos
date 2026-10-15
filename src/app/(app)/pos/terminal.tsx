@@ -5,6 +5,7 @@ import { Minus, Plus, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Alert, Button, inputCls } from "@/components/ui";
+import { productImageUrl } from "@/lib/product-image-url";
 import { useCurrency, useMoney } from "@/components/currency";
 import type { LocalReceipt, PosCatalog, PosProduct, QueuedSale, SalePayload } from "@/lib/offline/types";
 import { queueSale } from "@/lib/offline/store";
@@ -184,7 +185,7 @@ export function PosTerminal({ initial }: { initial: PosCatalog }) {
               className="flex flex-col rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-brand-500 hover:shadow disabled:cursor-not-allowed disabled:opacity-50">
               {p.hasImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`/api/products/${p.id}/image`} alt="" loading="lazy" className="mb-2 aspect-[3/2] w-full rounded-lg object-cover" />
+                <img src={productImageUrl(p.id, p.imageV)} alt="" loading="lazy" className="mb-2 aspect-[3/2] w-full rounded-lg object-cover" />
               ) : (
                 <div className="mb-2 flex aspect-[3/2] w-full items-center justify-center rounded-lg bg-slate-100 text-lg font-semibold text-slate-400">{p.name.slice(0, 2).toUpperCase()}</div>
               )}

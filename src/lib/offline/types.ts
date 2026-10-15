@@ -1,4 +1,4 @@
-export type PosProduct = { id: string; name: string; sku: string; barcode: string | null; sellPrice: number; stock: number; categoryId: string | null; hasImage: boolean };
+export type PosProduct = { id: string; name: string; sku: string; barcode: string | null; sellPrice: number; stock: number; categoryId: string | null; hasImage: boolean; imageV?: number };
 
 export type PosCatalog = {
   shopId: string; shopName: string; address: string; phone: string; receiptFooter: string; currency: string; receiptWidth: 58 | 80;

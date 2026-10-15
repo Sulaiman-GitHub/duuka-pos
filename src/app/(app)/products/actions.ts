@@ -98,7 +98,7 @@ export async function createProduct(_prev: ProductFormState, formData: FormData)
         data: {
           name: d.name, sku: d.sku ?? newSku(), barcode: d.barcode, description: d.description, categoryId: d.categoryId,
           costPrice: d.costPrice, sellPrice: d.sellPrice, stock: d.stock, minStock: d.minStock,
-          ...(img && !("error" in img) ? { imageData: img.data, imageType: img.type } : {}),
+          ...(img && !("error" in img) ? { imageData: img.data, imageType: img.type, imageUpdatedAt: new Date() } : {}),
         },
       });
       if (d.stock > 0)
@@ -137,7 +137,7 @@ export async function updateProduct(id: string, _prev: ProductFormState, formDat
         data: {
           name: d.name, sku: d.sku ?? undefined, barcode: d.barcode ?? null, description: d.description ?? null, categoryId: d.categoryId ?? null,
           costPrice: d.costPrice, sellPrice: d.sellPrice, stock: d.stock, minStock: d.minStock,
-          ...(img && !("error" in img) ? { imageData: img.data, imageType: img.type } : removeImage ? { imageData: null, imageType: null } : {}),
+          ...(img && !("error" in img) ? { imageData: img.data, imageType: img.type, imageUpdatedAt: new Date() } : removeImage ? { imageData: null, imageType: null, imageUpdatedAt: new Date() } : {}),
         },
       });
       const diff = d.stock - existing.stock;

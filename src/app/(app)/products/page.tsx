@@ -4,6 +4,7 @@ import { Badge, Card, PageHeader, inputCls, td, tdNum, th, Button } from "@/comp
 import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { can } from "@/lib/permissions";
+import { productImageUrl } from "@/lib/product-image-url";
 import { formatNumber, moneyFor } from "@/lib/money";
 import type { Prisma } from "@/generated/prisma/client";
 import { RowActions } from "./row-actions";
@@ -31,7 +32,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
   const [products, total, categories] = await withShop(user.shopId, (db) => Promise.all([
     db.product.findMany({
       where, orderBy: { name: "asc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE,
-      select: { id: true, name: true, sku: true, stock: true, minStock: true, costPrice: true, sellPrice: true, isActive: true, imageType: true, category: { select: { name: true } } },
+      select: { id: true, name: true, sku: true, stock: true, minStock: true, costPrice: true, sellPrice: true, isActive: true, imageType: true, imageUpdatedAt: true, category: { select: { name: true } } },
     }),
     db.product.count({ where }),
     db.category.findMany({ orderBy: { name: "asc" } }),
@@ -80,7 +81,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
                   <div className="flex items-center gap-3">
                     {p.imageType ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={`/api/products/${p.id}/image`} alt="" className="h-10 w-10 rounded-lg border object-cover" loading="lazy" />
+                      <img src={productImageUrl(p.id, p.imageUpdatedAt)} alt="" className="h-10 w-10 rounded-lg border object-cover" loading="lazy" />
                     ) : (
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-400">{p.name.slice(0, 2).toUpperCase()}</div>
                     )}

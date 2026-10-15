@@ -126,24 +126,25 @@ model Category {
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  shopId      String   @default(dbgenerated("current_setting('app.shop_id'::text, true)"))
-  sku         String
-  barcode     String?
-  name        String
-  description String?
+  id             String    @id @default(cuid())
+  shopId         String    @default(dbgenerated("current_setting('app.shop_id'::text, true)"))
+  sku            String
+  barcode        String?
+  name           String
+  description    String?
   // Images live in the DB (served by /api/products/[id]/image) because serverless hosts have no persistent disk.
-  imageData   Bytes?
-  imageType   String?
-  categoryId  String?
+  imageData      Bytes?
+  imageUpdatedAt DateTime? // changes whenever the photo is replaced or removed; part of the image address so caches never show an old photo
+  imageType      String?
+  categoryId     String?
   // Money is stored as whole currency units (integers) to avoid floating point errors.
-  costPrice   Int
-  sellPrice   Int
-  stock       Int      @default(0)
-  minStock    Int      @default(5)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  costPrice      Int
+  sellPrice      Int
+  stock          Int       @default(0)
+  minStock       Int       @default(5)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   shop           Shop                @relation(fields: [shopId], references: [id])
   category       Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)

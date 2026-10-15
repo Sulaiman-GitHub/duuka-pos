@@ -1,6 +1,6 @@
 /* Duuka POS service worker: lets the till open and keep selling with no connection.
  *  - /_next/static/*  : cached on first use (these files never change under the same name)
- *  - product images   : shown from cache, refreshed in the background
+ *  - product images   : kept on the device (the address changes when a photo does)
  *  - the /pos page    : network first (3.5 s), falls back to the last copy; the product list itself comes from IndexedDB
  *  - read-only pages  : (dashboard, sales and receipts, products, inventory, reports) network first, then the last copy seen,
  *                       so a manager can still look things up offline. Users, settings, audit and platform pages are never saved.
@@ -112,7 +112,10 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/")) return void event.respondWith(cacheFirst(STATIC, req));
-  if (/^\/api\/products\/[^/]+\/image/.test(url.pathname)) return void event.respondWith(staleWhileRevalidate(IMAGES, req));
+  if (/^\/api\/products\/[^/]+\/image/.test(url.pathname)) {
+    // A versioned address (?v=…) always means the same picture, so it can be kept for good; an unversioned one is re-checked.
+    return void event.respondWith(url.searchParams.has("v") ? cacheFirst(IMAGES, req) : staleWhileRevalidate(IMAGES, req));
+  }
   if (req.mode === "navigate") {
     if (url.pathname === "/pos") return void event.respondWith(posPage(req));
     if (READ_ONLY.some((re) => re.test(url.pathname))) return void event.respondWith(readOnlyPage(req, url));
