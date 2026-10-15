@@ -15,7 +15,8 @@ export type ShopPermission =
   | "users.manage"
   | "settings.manage"
   | "audit.view"
-  | "billing.view";
+  | "billing.view"
+  | "costs.view"; // buying costs, profit and stock value at cost: not for cashiers
 
 /** Permissions of the platform owner, who runs the platform but works in no shop. */
 export type PlatformPermission = "platform.manage";
@@ -25,7 +26,7 @@ export type Permission = ShopPermission | PlatformPermission;
 const SHOP_ALL: ShopPermission[] = [
   "pos.sell", "sales.view", "sales.viewAll", "sales.refund", "products.manage",
   "inventory.view", "inventory.adjust", "reports.view", "dashboard.view",
-  "suppliers.manage", "users.manage", "settings.manage", "audit.view", "billing.view",
+  "suppliers.manage", "users.manage", "settings.manage", "audit.view", "billing.view", "costs.view",
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
@@ -34,7 +35,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ADMIN: SHOP_ALL,
   MANAGER: [
     "pos.sell", "sales.view", "sales.viewAll", "sales.refund", "products.manage",
-    "inventory.view", "inventory.adjust", "reports.view", "dashboard.view", "suppliers.manage",
+    "inventory.view", "inventory.adjust", "reports.view", "dashboard.view", "suppliers.manage", "costs.view",
   ],
   CASHIER: ["pos.sell", "sales.view", "inventory.view"],
 };

@@ -5,7 +5,7 @@ import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { formatNumber, moneyFor } from "@/lib/money";
 import { can } from "@/lib/permissions";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { InventoryTabs } from "./tabs";
 
 export const metadata: Metadata = { title: "Inventory" };
@@ -24,6 +24,7 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
   const user = await pageGuard("inventory.view");
   const money = moneyFor(user.currency);
   const canAdjust = can(user.role, "inventory.adjust");
+  const showCosts = can(user.role, "costs.view");
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
   const filter = typeof sp.filter === "string" ? sp.filter : "all";
@@ -31,7 +32,7 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
 
   const { val, cost, retail, low, rows, total } = await withShop(user.shopId, async (db) => {
     const [val] = await db.$queryRaw<{ cost: bigint | null; retail: bigint | null; units: bigint | null }[]>`
-      SELECT SUM(stock::bigint * "costPrice") AS cost, SUM(stock::bigint * "sellPrice") AS retail, SUM(stock)::bigint AS units
+      SELECT ${showCosts ? Prisma.sql`SUM(stock::bigint * "costPrice")` : Prisma.sql`NULL::bigint`} AS cost, SUM(stock::bigint * "sellPrice") AS retail, SUM(stock)::bigint AS units
       FROM "Product" WHERE "isActive" = true`;
     const [low] = await db.$queryRaw<{ low: bigint; out: bigint }[]>`
       SELECT COUNT(*) FILTER (WHERE stock > 0 AND stock <= "minStock") AS low, COUNT(*) FILTER (WHERE stock = 0) AS out
@@ -53,7 +54,7 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
     const [rows, total] = await Promise.all([
       db.product.findMany({
         where, orderBy: filter === "all" ? { name: "asc" } : { stock: "asc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE,
-        select: { id: true, name: true, sku: true, stock: true, minStock: true, costPrice: true, category: { select: { name: true } } },
+        select: { id: true, name: true, sku: true, stock: true, minStock: true, ...(showCosts ? { costPrice: true } : {}), category: { select: { name: true } } },
       }),
       db.product.count({ where }),
     ]);
@@ -66,9 +67,9 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
     <>
       <PageHeader title="Inventory" subtitle="Stock levels, valuation and alerts" />
       <InventoryTabs active="stock" canAdjust={canAdjust} />
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className={`mb-6 grid gap-3 sm:grid-cols-2 ${showCosts ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
         <Stat label="Units in stock" value={formatNumber(Number(val.units ?? 0))} />
-        <Stat label="Value at cost" value={money(cost)} />
+        {showCosts && <Stat label="Value at cost" value={money(cost)} />}
         <Stat label="Value at retail" value={money(retail)} />
         <Stat label="Low stock" value={String(low.low)} tone={Number(low.low) ? "amber" : undefined} />
         <Stat label="Out of stock" value={String(low.out)} tone={Number(low.out) ? "red" : undefined} />
@@ -85,7 +86,7 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
       <Card className="overflow-x-auto">
         <table className="w-full min-w-[700px]">
           <thead className="border-b border-slate-200 bg-slate-50">
-            <tr><th className={th}>Product</th><th className={th}>Category</th><th className={`${th} text-right`}>In stock</th><th className={`${th} text-right`}>Min</th><th className={`${th} text-right`}>Value at cost</th><th className={th}>Status</th>{canAdjust && <th className={th} />}</tr>
+            <tr><th className={th}>Product</th><th className={th}>Category</th><th className={`${th} text-right`}>In stock</th><th className={`${th} text-right`}>Min</th>{showCosts && <th className={`${th} text-right`}>Value at cost</th>}<th className={th}>Status</th>{canAdjust && <th className={th} />}</tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {rows.map((p) => (
@@ -94,12 +95,12 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
                 <td className={td}>{p.category?.name ?? "—"}</td>
                 <td className={tdNum}>{formatNumber(p.stock)}</td>
                 <td className={tdNum}>{p.minStock}</td>
-                <td className={tdNum}>{money(p.stock * p.costPrice)}</td>
+                {showCosts && <td className={tdNum}>{money(p.stock * ((p as { costPrice?: number }).costPrice ?? 0))}</td>}
                 <td className={td}>{p.stock === 0 ? <Badge tone="red">Out of stock</Badge> : p.stock <= p.minStock ? <Badge tone="amber">Low stock</Badge> : <Badge tone="green">OK</Badge>}</td>
                 {canAdjust && <td className={`${td} text-right`}><Link href={`/inventory/adjust?product=${p.id}`} className="text-brand-500 hover:underline">Adjust</Link></td>}
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">Nothing to show.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={showCosts ? 7 : 6} className="px-4 py-10 text-center text-sm text-slate-500">Nothing to show.</td></tr>}
           </tbody>
         </table>
       </Card>

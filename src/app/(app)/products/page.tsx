@@ -29,7 +29,8 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
     ...(status === "inactive" && { isActive: false }),
   };
 
-  const [products, total, categories] = await withShop(user.shopId, (db) => Promise.all([
+  const showCosts = can(user.role, "costs.view");
+  const [rawProducts, total, categories] = await withShop(user.shopId, (db) => Promise.all([
     db.product.findMany({
       where, orderBy: { name: "asc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE,
       select: { id: true, name: true, sku: true, stock: true, minStock: true, costPrice: true, sellPrice: true, isActive: true, imageType: true, imageUpdatedAt: true, category: { select: { name: true } } },
@@ -37,6 +38,8 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
     db.product.count({ where }),
     db.category.findMany({ orderBy: { name: "asc" } }),
   ]));
+  // Cashiers never receive buying costs: they are dropped here, on the server, before anything is rendered or sent.
+  const products = rawProducts.map(({ costPrice, ...p }) => ({ ...p, costPrice: showCosts ? costPrice : null }));
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const qs = (p: number) => new URLSearchParams({ ...(q && { q }), ...(category && { category }), status, page: String(p) }).toString();
 
@@ -69,7 +72,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
         <table className="w-full min-w-[800px]">
           <thead className="border-b border-slate-200 bg-slate-50">
             <tr>
-              <th className={th}>Product</th><th className={th}>Category</th><th className={`${th} text-right`}>Cost</th>
+              <th className={th}>Product</th><th className={th}>Category</th>{showCosts && <th className={`${th} text-right`}>Cost</th>}
               <th className={`${th} text-right`}>Price</th><th className={`${th} text-right`}>Stock</th><th className={th}>Status</th>
               {canManage && <th className={th} />}
             </tr>
@@ -89,7 +92,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
                   </div>
                 </td>
                 <td className={td}>{p.category?.name ?? "—"}</td>
-                <td className={tdNum}>{money(p.costPrice)}</td>
+                {showCosts && <td className={tdNum}>{money(p.costPrice ?? 0)}</td>}
                 <td className={tdNum}>{money(p.sellPrice)}</td>
                 <td className={tdNum}>
                   {p.stock === 0 ? <Badge tone="red">Out of stock</Badge> : p.stock <= p.minStock ? <Badge tone="amber">Low: {p.stock}</Badge> : formatNumber(p.stock)}

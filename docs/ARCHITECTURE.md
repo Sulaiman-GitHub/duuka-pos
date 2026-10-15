@@ -126,6 +126,10 @@ politely:
 | Double receiving of a purchase order | The order row is locked while stock is received |
 | Half-finished sales | The sale, its lines, the stock changes and ledger rows are **one transaction** — it all happens or none of it does |
 
+## Costs are hidden from cashiers
+
+Buying costs, stock value at cost and profit need the `costs.view` permission (managers and admins). For cashiers the Products and Inventory pages leave the cost column and the "Value at cost" figures out, and the cost values are removed on the server before the page is built, so they are not in the page data either. The till's offline product list never contains costs, and receipts show selling prices only. Dashboard and Reports (where profit appears) were already closed to cashiers.
+
 ## Multi-shop tenancy
 
 Every business table carries a `shopId`. Isolation is enforced in PostgreSQL itself with **row-level security**
@@ -187,7 +191,7 @@ no persistent disk.
 
 ## Testing
 
-`npm test` runs **127 tests** (Vitest).
+`npm test` runs **128 tests** (Vitest).
 
 | Suite | Covers |
 |---|---|
