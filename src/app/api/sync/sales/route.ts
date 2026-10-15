@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { can } from "@/lib/permissions";
+import { NOT_YOURS } from "@/lib/offline/queue-rules";
 import { sellInShop, syncSaleSchema, type SaleResult } from "@/lib/sales";
 import { getUser } from "@/lib/session";
 import { getSettings } from "@/lib/settings";
@@ -37,7 +38,9 @@ export async function POST(req: Request) {
     const s = parsed.data;
     // The sale belongs to whoever rang it up, but only a manager/admin may upload on someone else's behalf.
     let actor = { id: user.id, role: user.role };
-    if (s.cashierId && s.cashierId !== user.id && can(user.role, "sales.viewAll")) {
+    if (s.cashierId && s.cashierId !== user.id) {
+      // Never credit one person's sale to another: only a manager/admin may upload on someone else's behalf.
+      if (!can(user.role, "sales.viewAll")) { results.push({ clientId: s.clientId, error: NOT_YOURS }); continue; }
       const c = await withShop(shopId, (tx) => tx.user.findUnique({ where: { id: s.cashierId }, select: { id: true, role: true } }));
       if (c) actor = c;
     }

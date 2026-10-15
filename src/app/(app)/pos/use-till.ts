@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushQueue, retryFailed, type FlushOutcome } from "@/lib/offline/sync";
 import { getCatalog, idbAvailable, listQueue, putCatalog, removeQueued } from "@/lib/offline/store";
 import type { PosCatalog, PosProduct, QueuedSale } from "@/lib/offline/types";
@@ -18,6 +18,8 @@ export function useTill(initial: PosCatalog) {
   const [signedOut, setSignedOut] = useState(false);
   const [lastSync, setLastSync] = useState<FlushOutcome>();
   const shopId = initial.shopId;
+  const catalogRef = useRef(catalog);
+  useEffect(() => { catalogRef.current = catalog; }, [catalog]);
 
   const reloadQueue = useCallback(async () => { if (idbAvailable()) setQueue(await listQueue(shopId)); }, [shopId]);
 
@@ -36,7 +38,7 @@ export function useTill(initial: PosCatalog) {
 
   const sync = useCallback(async () => {
     if (!idbAvailable()) return;
-    const out = await flushQueue(shopId);
+    const out = await flushQueue(shopId, { userId: catalogRef.current.userId, canUploadAll: catalogRef.current.canUploadAll });
     if (out.status === "signed-out") setSignedOut(true);
     if (out.status !== "busy") setLastSync(out);
     await reloadQueue();

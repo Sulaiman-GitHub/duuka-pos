@@ -1,5 +1,6 @@
 "use client";
 
+import { NOT_YOURS, uploadableBy } from "./queue-rules";
 import { listQueue, queueSale, removeQueued } from "./store";
 import type { QueuedSale } from "./types";
 
@@ -12,11 +13,11 @@ let flushing = false;
  * Uploads every waiting sale for this shop, oldest first. Safe to call from anywhere, any number of times: the server
  * ignores a sale it already has, so a lost response just means the sale is confirmed as a duplicate next time.
  */
-export async function flushQueue(shopId: string): Promise<FlushOutcome> {
+export async function flushQueue(shopId: string, me: { userId: string; canUploadAll: boolean }): Promise<FlushOutcome> {
   if (flushing) return { uploaded: 0, failed: 0, status: "busy" };
   flushing = true;
   try {
-    const waiting = (await listQueue(shopId)).filter((q) => q.status === "pending");
+    const waiting = uploadableBy(await listQueue(shopId), me); // never someone else's sales, unless the signed-in person is a manager/admin
     let uploaded = 0, failed = 0;
     for (let i = 0; i < waiting.length; i += 10) {
       const batch = waiting.slice(i, i + 10);
@@ -35,6 +36,7 @@ export async function flushQueue(shopId: string): Promise<FlushOutcome> {
       for (const r of results) {
         const q = batch.find((b) => b.clientId === r.clientId);
         if (!q) continue;
+        if (r.error === NOT_YOURS) continue; // belongs to another person on this device: stays waiting for them
         if (r.error) {
           failed++;
           await queueSale({ ...q, status: "failed", error: r.error, attempts: q.attempts + 1 } satisfies QueuedSale);

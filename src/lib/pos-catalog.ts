@@ -1,4 +1,5 @@
 import "server-only";
+import { can } from "@/lib/permissions";
 import type { ShopUser } from "@/lib/session";
 import { getSettings } from "@/lib/settings";
 import { withShop } from "@/lib/tenant";
@@ -17,7 +18,7 @@ export async function buildCatalog(user: ShopUser): Promise<PosCatalog> {
   ]));
   return {
     shopId: user.shopId, shopName: settings.name, address: settings.address, phone: settings.phone, receiptFooter: settings.receiptFooter, currency: settings.currency, receiptWidth: settings.receiptWidth,
-    userId: user.id, userName: user.name, generatedAt: generatedAt.toISOString(),
+    userId: user.id, userName: user.name, canUploadAll: can(user.role, "sales.viewAll"), generatedAt: generatedAt.toISOString(),
     maxDiscountPercent: user.role === "CASHIER" ? settings.cashierMaxDiscountPercent : 100,
     products: products.map(({ imageType, imageUpdatedAt, ...p }) => ({ ...p, hasImage: !!imageType, imageV: imageUpdatedAt?.getTime() ?? 0 })),
     categories,

@@ -146,7 +146,7 @@ The point-of-sale screen keeps working with no internet, on phones and PCs (it i
 - **Online sales** use the same endpoint in `live` mode with the original strict rules (live price, no overselling, discount limit).
 - **Offline sales are always accepted** because the goods already left the shop. Anything the server would have refused is recorded and **flagged for review** (`Sale.needsReview` + `reviewNote`, shown to managers with a "Mark as reviewed" button): stock gone negative, a discount above the cashier limit, an item deactivated meanwhile, or a total that differs from what the till charged. The price the till showed is honoured only if the product could really have changed after the till last synced; otherwise the database price is used and the sale is flagged.
 - **Receipt numbers:** offline sales get a provisional `OFF-…` reference; the real, sequential receipt number is assigned when the sale uploads.
-- **Identity:** the sale is credited to the cashier who rang it up; only a manager or admin can upload another person's sales. Queued sales stay on the device until they reach the server (signing out does not delete them), and an expired sign-in only pauses the upload.
+- **Identity:** the sale is credited to the cashier who rang it up. On a shared device a cashier's till uploads only that cashier's waiting sales (the server also refuses to credit one person's sale to another); a manager or admin can upload everyone's, and the server records the real cashier. Queued sales stay on the device until they reach the server (signing out does not delete them), and an expired sign-in only pauses the upload.
 - **Saving the till for offline use:** every signed-in user who can sell triggers, from whichever screen they land on, a save of the till page and all of its scripts and styles (at most every 12 hours, and again after each sign-in). Without this, someone who lands on the dashboard and never opens the till online would find it missing offline. If it is still missing, the device says so plainly instead of looping.
 - **Scope:** selling is fully offline-capable. Dashboard, sales/receipts, products, inventory and reports open offline from the last copy viewed (with an "offline, may be out of date" banner). Users, settings, audit and platform pages are never saved and need a connection; nothing can be changed offline except selling. Saved page copies are cleared when the sign-in page is shown.
 - **Printing:** receipts are plain data (`ReceiptData`) rendered by one component laid out for 58/80 mm rolls, or turned into ESC/POS bytes (`src/lib/printing/escpos.ts`) for direct USB/Bluetooth printing; see [PRINTERS.md](PRINTERS.md).
@@ -187,7 +187,7 @@ no persistent disk.
 
 ## Testing
 
-`npm test` runs **123 tests** (Vitest).
+`npm test` runs **127 tests** (Vitest).
 
 | Suite | Covers |
 |---|---|
