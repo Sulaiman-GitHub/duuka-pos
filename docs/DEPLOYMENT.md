@@ -40,6 +40,16 @@ The database user needs `CREATEROLE` the first time migrations run (they create 
 default owner role has it. **Use a separate Vercel project and a separate Neon database for Duuka POS** — never connect it to
 another application's database.
 
+### Hosting on Vercel (Next.js' home)
+
+Vercel doesn't keep a sleeping server: each request starts the app, so there is no long wake-up like free Render. Notes:
+
+- Create the project from the GitHub repo (Settings → Git), set the **Function Region** to the same region as the database (Frankfurt, `fra1`, for a Neon database in `eu-central-1`), and add the variables from the tables above.
+- Use the database's **pooled** address for `DATABASE_URL` and the **direct** address for `DATABASE_URL_UNPOOLED` (migrations run during the build and need a direct connection).
+- The build runs `npm run build`, which applies migrations and creates the first platform owner (from `PLATFORM_OWNER_*`) if none exists. Every push to `main` then deploys automatically.
+- Vercel's free **Hobby** plan is for non-commercial use. Use **Pro** before paying customers rely on it.
+- Use a Vercel project and database **separate** from any other application.
+
 ### Email (optional, recommended)
 
 Invitations and password resets are sent with [Resend](https://resend.com). Set `RESEND_API_KEY` and `MAIL_FROM` (a sender on a
