@@ -31,11 +31,11 @@ export const makeUser = (shopId: string | null, role: Role = "CASHIER", email = 
 
 export const makeProduct = (
   shopId: string,
-  o: Partial<{ name: string; price: number; cost: number; stock: number; isActive: boolean; minStock: number; sku: string }> = {},
+  o: Partial<{ name: string; price: number; cost: number; stock: number; isActive: boolean; minStock: number; sku: string; expiryDate: Date | null }> = {},
 ) =>
   asPlatform((tx) =>
     tx.product.create({
-      data: { shopId, sku: o.sku ?? `T-${uniq()}`, name: o.name ?? `Product ${uniq()}`, sellPrice: o.price ?? 2000, costPrice: o.cost ?? 1200, stock: o.stock ?? 10, minStock: o.minStock ?? 5, isActive: o.isActive ?? true },
+      data: { shopId, sku: o.sku ?? `T-${uniq()}`, name: o.name ?? `Product ${uniq()}`, sellPrice: o.price ?? 2000, costPrice: o.cost ?? 1200, stock: o.stock ?? 10, minStock: o.minStock ?? 5, isActive: o.isActive ?? true, expiryDate: o.expiryDate ?? null },
     }),
   );
 

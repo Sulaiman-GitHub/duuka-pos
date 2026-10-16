@@ -59,6 +59,7 @@ model Shop {
   phone                     String   @default("")
   receiptFooter             String   @default("Thank you for shopping with us!")
   cashierMaxDiscountPercent Int      @default(10)
+  expiryAlertDays           Int      @default(30) // warn this many days before a product's expiry date
   receiptWidth              Int      @default(80) // paper width in mm for receipt printers: 58 or 80
   currency                  String   @default("UGX") // reserved: amounts are whole units of this currency
   isActive                  Boolean  @default(true)
@@ -134,6 +135,8 @@ model Product {
   description    String?
   // Images live in the DB (served by /api/products/[id]/image) because serverless hosts have no persistent disk.
   imageData      Bytes?
+  // The date the earliest-expiring stock of this product expires (a Kampala calendar day). Null = does not expire.
+  expiryDate     DateTime?
   imageUpdatedAt DateTime? // changes whenever the photo is replaced or removed; part of the image address so caches never show an old photo
   imageType      String?
   categoryId     String?
@@ -156,6 +159,7 @@ model Product {
   @@unique([shopId, barcode])
   @@index([shopId, name])
   @@index([categoryId])
+  @@index([shopId, expiryDate])
 }
 
 model StockMovement {

@@ -5,6 +5,9 @@ import { withShop } from "@/lib/tenant";
 import { pageGuard } from "@/lib/guard";
 import { formatNumber, moneyFor } from "@/lib/money";
 import { can } from "@/lib/permissions";
+import { expiryCounts, expiryStatus, expiryWhere } from "@/lib/expiry";
+import { getSettings } from "@/lib/settings";
+import { formatDate } from "@/lib/time";
 import { Prisma } from "@/generated/prisma/client";
 import { InventoryTabs } from "./tabs";
 
@@ -25,12 +28,13 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
   const money = moneyFor(user.currency);
   const canAdjust = can(user.role, "inventory.adjust");
   const showCosts = can(user.role, "costs.view");
+  const alertDays = (await getSettings(user.shopId)).expiryAlertDays;
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
   const filter = typeof sp.filter === "string" ? sp.filter : "all";
   const page = Math.max(1, Number(sp.page) || 1);
 
-  const { val, cost, retail, low, rows, total } = await withShop(user.shopId, async (db) => {
+  const { val, cost, retail, low, rows, total, exp } = await withShop(user.shopId, async (db) => {
     const [val] = await db.$queryRaw<{ cost: bigint | null; retail: bigint | null; units: bigint | null }[]>`
       SELECT ${showCosts ? Prisma.sql`SUM(stock::bigint * "costPrice")` : Prisma.sql`NULL::bigint`} AS cost, SUM(stock::bigint * "sellPrice") AS retail, SUM(stock)::bigint AS units
       FROM "Product" WHERE "isActive" = true`;
@@ -45,6 +49,7 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
       const ids = await db.$queryRaw<{ id: string }[]>`SELECT id FROM "Product" WHERE "isActive" = true AND stock > 0 AND stock <= "minStock"`;
       idFilter = { id: { in: ids.map((r) => r.id) } };
     } else if (filter === "out") idFilter = { stock: 0 };
+    else if (filter === "expired" || filter === "expiring") idFilter = expiryWhere(filter === "expired" ? "expired" : "soon", alertDays);
 
     const where: Prisma.ProductWhereInput = {
       isActive: true,
@@ -53,12 +58,13 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
     };
     const [rows, total] = await Promise.all([
       db.product.findMany({
-        where, orderBy: filter === "all" ? { name: "asc" } : { stock: "asc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE,
-        select: { id: true, name: true, sku: true, stock: true, minStock: true, ...(showCosts ? { costPrice: true } : {}), category: { select: { name: true } } },
+        where, orderBy: filter === "expired" || filter === "expiring" ? { expiryDate: "asc" } : filter === "all" ? { name: "asc" } : { stock: "asc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE,
+        select: { id: true, name: true, sku: true, stock: true, minStock: true, ...(showCosts ? { costPrice: true } : {}), category: { select: { name: true } }, expiryDate: true },
       }),
       db.product.count({ where }),
     ]);
-    return { val, cost, retail, low, rows, total };
+    const exp = await expiryCounts(db, alertDays);
+    return { val, cost, retail, low, rows, total, exp };
   });
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const qs = (p: number) => new URLSearchParams({ ...(q && { q }), filter, page: String(p) }).toString();
@@ -67,12 +73,14 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
     <>
       <PageHeader title="Inventory" subtitle="Stock levels, valuation and alerts" />
       <InventoryTabs active="stock" canAdjust={canAdjust} />
-      <div className={`mb-6 grid gap-3 sm:grid-cols-2 ${showCosts ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+      <div className={`mb-6 grid gap-3 sm:grid-cols-2 ${showCosts ? "lg:grid-cols-4 xl:grid-cols-7" : "lg:grid-cols-3 xl:grid-cols-6"}`}>
         <Stat label="Units in stock" value={formatNumber(Number(val.units ?? 0))} />
         {showCosts && <Stat label="Value at cost" value={money(cost)} />}
         <Stat label="Value at retail" value={money(retail)} />
         <Stat label="Low stock" value={String(low.low)} tone={Number(low.low) ? "amber" : undefined} />
         <Stat label="Out of stock" value={String(low.out)} tone={Number(low.out) ? "red" : undefined} />
+        <Stat label="Expired (in stock)" value={String(exp.expired)} tone={exp.expired ? "red" : undefined} />
+        <Stat label={`Expiring in ${alertDays} days`} value={String(exp.soon)} tone={exp.soon ? "amber" : undefined} />
       </div>
       <form className="mb-4 flex flex-wrap gap-2">
         <input name="q" defaultValue={q} placeholder="Search name or SKU…" className={`${inputCls} max-w-xs`} />
@@ -80,13 +88,15 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
           <option value="all">All products</option>
           <option value="low">Low stock</option>
           <option value="out">Out of stock</option>
+          <option value="expiring">Expiring soon</option>
+          <option value="expired">Expired</option>
         </select>
         <Button type="submit" variant="secondary">Filter</Button>
       </form>
       <Card className="overflow-x-auto">
         <table className="w-full min-w-[700px]">
           <thead className="border-b border-slate-200 bg-slate-50">
-            <tr><th className={th}>Product</th><th className={th}>Category</th><th className={`${th} text-right`}>In stock</th><th className={`${th} text-right`}>Min</th>{showCosts && <th className={`${th} text-right`}>Value at cost</th>}<th className={th}>Status</th>{canAdjust && <th className={th} />}</tr>
+            <tr><th className={th}>Product</th><th className={th}>Category</th><th className={`${th} text-right`}>In stock</th><th className={`${th} text-right`}>Min</th>{showCosts && <th className={`${th} text-right`}>Value at cost</th>}<th className={th}>Expires</th><th className={th}>Status</th>{canAdjust && <th className={th} />}</tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {rows.map((p) => (
@@ -96,11 +106,12 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
                 <td className={tdNum}>{formatNumber(p.stock)}</td>
                 <td className={tdNum}>{p.minStock}</td>
                 {showCosts && <td className={tdNum}>{money(p.stock * ((p as { costPrice?: number }).costPrice ?? 0))}</td>}
+                <td className={`${td} whitespace-nowrap`}>{(() => { const e = expiryStatus(p.expiryDate, alertDays); return e.state === "none" ? <span className="text-slate-400">—</span> : <><div>{formatDate(p.expiryDate!)}</div><Badge tone={e.state === "expired" ? "red" : e.state === "soon" ? "amber" : "slate"}>{e.label}</Badge></>; })()}</td>
                 <td className={td}>{p.stock === 0 ? <Badge tone="red">Out of stock</Badge> : p.stock <= p.minStock ? <Badge tone="amber">Low stock</Badge> : <Badge tone="green">OK</Badge>}</td>
                 {canAdjust && <td className={`${td} text-right`}><Link href={`/inventory/adjust?product=${p.id}`} className="text-brand-500 hover:underline">Adjust</Link></td>}
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={showCosts ? 7 : 6} className="px-4 py-10 text-center text-sm text-slate-500">Nothing to show.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={showCosts ? 8 : 7} className="px-4 py-10 text-center text-sm text-slate-500">Nothing to show.</td></tr>}
           </tbody>
         </table>
       </Card>

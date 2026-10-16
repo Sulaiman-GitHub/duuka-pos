@@ -126,6 +126,14 @@ politely:
 | Double receiving of a purchase order | The order row is locked while stock is received |
 | Half-finished sales | The sale, its lines, the stock changes and ledger rows are **one transaction** — it all happens or none of it does |
 
+## Expiry alerts
+
+A product can have an optional **expiry date** (the date its earliest-expiring stock runs out, a Kampala calendar day) and each shop chooses how many days ahead to be warned (Settings, default 30). A product is usable through its expiry date and *expired* the day after (`src/lib/expiry.ts`). Only active products that are in stock count. The warnings appear as two tiles and an Expires column with *Expiring soon* / *Expired* filters on Inventory, an *Expiry alerts* tile on the Dashboard (only for shops that use expiry dates), and a badge on the till; adding an expired product to a sale asks the cashier to confirm first. The date is per product, not per delivery: after restocking, set it to the date of the batch that expires first.
+
+## Sending receipts on WhatsApp
+
+The receipt page and the offline receipt have a **WhatsApp** button that opens WhatsApp with the receipt as a message (`wa.me` link), straight to the customer's number if one was entered at the till (local numbers like 0772… get the shop's country code), otherwise it asks for a number or lets the cashier pick the contact in WhatsApp. Nothing is sent automatically and no WhatsApp account or API is needed; it uses the phone's own WhatsApp.
+
 ## Costs are hidden from cashiers
 
 Buying costs, stock value at cost and profit need the `costs.view` permission (managers and admins). For cashiers the Products and Inventory pages leave the cost column and the "Value at cost" figures out, and the cost values are removed on the server before the page is built, so they are not in the page data either. The till's offline product list never contains costs, and receipts show selling prices only. Dashboard and Reports (where profit appears) were already closed to cashiers.
@@ -191,7 +199,7 @@ no persistent disk.
 
 ## Testing
 
-`npm test` runs **128 tests** (Vitest).
+`npm test` runs **142 tests** (Vitest).
 
 | Suite | Covers |
 |---|---|

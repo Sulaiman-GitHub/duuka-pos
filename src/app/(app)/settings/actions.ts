@@ -13,6 +13,7 @@ const schema = z.object({
   address: z.string().trim().min(2, "Address is required").max(160),
   phone: z.string().trim().min(3, "Phone is required").max(50),
   receiptFooter: z.string().trim().max(160),
+  expiryAlertDays: z.coerce.number({ message: "Expiry warning must be a number of days" }).int("Whole days only").min(1, "At least 1 day").max(365, "At most 365 days"),
   receiptWidth: z.coerce.number().refine((w) => w === 58 || w === 80, "Choose 58 mm or 80 mm paper"),
   cashierMaxDiscountPercent: z.coerce.number({ message: "Discount limit must be a number" }).int("Whole numbers only").min(0).max(100),
 });

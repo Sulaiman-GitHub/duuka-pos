@@ -1,7 +1,7 @@
-export type PosProduct = { id: string; name: string; sku: string; barcode: string | null; sellPrice: number; stock: number; categoryId: string | null; hasImage: boolean; imageV?: number };
+export type PosProduct = { id: string; name: string; sku: string; barcode: string | null; sellPrice: number; stock: number; categoryId: string | null; hasImage: boolean; imageV?: number; expiry?: string | null };
 
 export type PosCatalog = {
-  shopId: string; shopName: string; address: string; phone: string; receiptFooter: string; currency: string; receiptWidth: 58 | 80;
+  shopId: string; shopName: string; address: string; phone: string; receiptFooter: string; currency: string; receiptWidth: 58 | 80; expiryAlertDays?: number;
   userId: string; userName: string; canUploadAll: boolean; generatedAt: string; maxDiscountPercent: number;
   products: PosProduct[]; categories: { id: string; name: string }[];
 };
@@ -19,7 +19,7 @@ export type SalePayload = {
 export type LocalReceipt = {
   lines: { name: string; quantity: number; unitPrice: number }[];
   subtotal: number; discount: number; total: number; paid: number; change: number; methodLabel: string;
-  cashierName: string; customerName?: string;
+  cashierName: string; customerName?: string; customerPhone?: string;
 };
 
 export type QueuedSale = {

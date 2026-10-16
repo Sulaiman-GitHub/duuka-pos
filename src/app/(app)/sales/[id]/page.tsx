@@ -34,7 +34,7 @@ export default async function ReceiptPage({ params, searchParams }: PageProps<"/
   const receipt: ReceiptData = {
     shopName: business.name, address: business.address, phone: business.phone, footer: business.receiptFooter, widthMm: business.receiptWidth,
     ref: sale.receiptNo, refNote: sale.offlineAt ? "Made offline, uploaded later" : undefined, dateText: formatDateTime(sale.createdAt), cashier: sale.cashier.name,
-    customer: sale.customerName ?? undefined,
+    customer: sale.customerName ?? undefined, customerPhone: sale.customerPhone ?? undefined,
     lines: sale.items.map((it) => ({ name: it.productName, quantity: it.quantity, unitPrice: it.unitPrice, lineTotal: it.lineTotal })),
     subtotal: sale.subtotal, discount: sale.discount, total: sale.total, paymentLabel: METHOD_LABEL[sale.paymentMethod], paid: sale.amountPaid, change: sale.changeGiven,
     reference: sale.note ?? undefined, refunded: refunded || undefined, currency: user.currency,

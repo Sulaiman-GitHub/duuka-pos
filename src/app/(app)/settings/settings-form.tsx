@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Alert, Button, Field, inputCls } from "@/components/ui";
 import { saveSettings, type SettingsState } from "./actions";
 
-type S = { name: string; address: string; phone: string; receiptFooter: string; cashierMaxDiscountPercent: number; receiptWidth: number };
+type S = { name: string; address: string; phone: string; receiptFooter: string; cashierMaxDiscountPercent: number; receiptWidth: number; expiryAlertDays: number };
 
 export function SettingsForm({ settings }: { settings: S }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(saveSettings, {});
@@ -20,6 +20,9 @@ export function SettingsForm({ settings }: { settings: S }) {
         <select name="receiptWidth" defaultValue={settings.receiptWidth} className={`${inputCls} max-w-[12rem]`}>
           <option value={58}>58 mm (small)</option><option value={80}>80 mm (standard)</option>
         </select>
+      </Field>
+      <Field label="Warn before products expire (days)" hint="Products with an expiry date are flagged on the Inventory page and Dashboard this many days ahead.">
+        <input name="expiryAlertDays" type="number" min={1} max={365} step={1} required defaultValue={settings.expiryAlertDays} className={`${inputCls} max-w-[8rem]`} />
       </Field>
       <Field label="Maximum discount a cashier can give (%)" hint="Managers and admins are not limited. Applies immediately at the till.">
         <input name="cashierMaxDiscountPercent" type="number" min={0} max={100} step={1} required defaultValue={settings.cashierMaxDiscountPercent} className={`${inputCls} max-w-[8rem]`} />

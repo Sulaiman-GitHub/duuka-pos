@@ -154,6 +154,7 @@ user with no shop (`role = PLATFORM_OWNER` ⇔ `shopId IS NULL`, enforced by a C
 | `AuthToken` | One-time invitation / reset links | Stores only a SHA-256 hash; expires; single use; readable only at platform level (own RLS policy) |
 | `Invoice` | Subscription invoices | Unique number; shop can read its own, only the platform owner writes (RLS); statuses UNPAID / PAID / VOID |
 | `PlatformSettings` | Owner's business details, payment instructions, next invoice number | One row; platform-only |
+| `Product.expiryDate` / `Shop.expiryAlertDays` | Optional expiry date per product; how many days ahead to warn | Drives the expiry alerts |
 | `Shop` (billing columns) | `planName`, `monthlyPrice`, `maxUsers`, `trialEndsAt`, `paidUntil`, `billingNote` | Written only by the platform owner |
 | `ReceiptCounter` | Receipt number allocation | One row per shop per day |
 

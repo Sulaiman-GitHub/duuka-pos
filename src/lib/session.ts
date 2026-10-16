@@ -51,7 +51,7 @@ export const getUser = cache(async (): Promise<SessionUser | null> => {
     const user = await asPlatform((tx) =>
       tx.user.findUnique({
         where: { id: String(payload.uid) },
-        select: { id: true, name: true, email: true, role: true, isActive: true, shop: { select: { id: true, name: true, isActive: true, currency: true, monthlyPrice: true, trialEndsAt: true, paidUntil: true, address: true, phone: true, receiptFooter: true, cashierMaxDiscountPercent: true, receiptWidth: true } } },
+        select: { id: true, name: true, email: true, role: true, isActive: true, shop: { select: { id: true, name: true, isActive: true, currency: true, monthlyPrice: true, trialEndsAt: true, paidUntil: true, address: true, phone: true, receiptFooter: true, cashierMaxDiscountPercent: true, receiptWidth: true, expiryAlertDays: true } } },
       }),
     );
     if (!user || !user.isActive) return null;

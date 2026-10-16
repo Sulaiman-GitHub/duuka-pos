@@ -3,7 +3,7 @@ export type ReceiptData = {
   shopName: string; address: string; phone: string; footer: string;
   /** Paper width of the shop's receipt printer in millimetres. */
   widthMm: 58 | 80;
-  ref: string; refNote?: string; dateText: string; cashier: string; customer?: string;
+  ref: string; refNote?: string; dateText: string; cashier: string; customer?: string; customerPhone?: string;
   lines: { name: string; quantity: number; unitPrice: number; lineTotal: number }[];
   subtotal: number; discount: number; total: number;
   paymentLabel: string; paid: number; change: number; reference?: string;

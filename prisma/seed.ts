@@ -1,3 +1,4 @@
+import { startOfKampalaDay } from "../src/lib/time";
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
@@ -81,6 +82,9 @@ async function main() {
         }
       }
       await tx.product.createMany({ data: martRows as never });
+      // Perishables with expiry dates, so the expiry alerts have something to show.
+      for (const [name, inDays] of [["Milk 500ml", -3], ["Chapati (5 pack)", 3], ["Bread (sliced)", 2], ["Eggs (tray of 30)", 12], ["Passion Juice 1L", 40]] as const)
+        await tx.product.updateMany({ where: { shopId: mart.id, name }, data: { expiryDate: startOfKampalaDay(new Date(Date.now() + inDays * 86_400_000)) } });
       const opening = martProducts.map((p) => ({ shopId: mart.id, productId: p.id, type: "INITIAL" as const, quantity: p.stock, stockAfter: p.stock, reason: "Opening stock", userId: martAdmin.id, createdAt: daysAgo(61) }));
 
       const mart1 = await generateSales(tx, mart.id, martProducts, [cator(cashier1.id), cator(cashier2.id), cator(martManager.id)], 60, 4, 8);

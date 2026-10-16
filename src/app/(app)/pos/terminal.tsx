@@ -5,6 +5,7 @@ import { Minus, Plus, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Alert, Button, inputCls } from "@/components/ui";
+import { expiryStatus } from "@/lib/expiry";
 import { productImageUrl } from "@/lib/product-image-url";
 import { useCurrency, useMoney } from "@/components/currency";
 import type { LocalReceipt, PosCatalog, PosProduct, QueuedSale, SalePayload } from "@/lib/offline/types";
@@ -63,6 +64,8 @@ export function PosTerminal({ initial }: { initial: PosCatalog }) {
 
   function add(p: Product) {
     setError(undefined);
+    // Selling past-date goods is a safety problem, so make the cashier stop and think once per product per sale.
+    if (!cart[p.id] && expiryStatus(p.expiry, catalog.expiryAlertDays ?? 30).state === "expired" && !confirm(`"${p.name}" is past its expiry date (${expiryStatus(p.expiry, 0).label.toLowerCase()}). Sell it anyway?`)) return;
     setCart((c) => {
       const next = (c[p.id] ?? 0) + 1;
       if (next > p.stock) { setError(`Only ${p.stock} of "${p.name}" in stock.`); return c; }
@@ -142,7 +145,7 @@ export function PosTerminal({ initial }: { initial: PosCatalog }) {
       };
       const receipt: LocalReceipt = {
         lines: lines.map((l) => ({ name: l.p.name, quantity: l.quantity, unitPrice: l.p.sellPrice })),
-        subtotal, discount, total, paid, change, methodLabel: METHODS.find((m) => m.key === method)!.label, cashierName: catalog.userName, customerName: customerName || undefined,
+        subtotal, discount, total, paid, change, methodLabel: METHODS.find((m) => m.key === method)!.label, cashierName: catalog.userName, customerName: customerName || undefined, customerPhone: customerPhone || undefined,
       };
       const queued: QueuedSale = { clientId, shopId: catalog.shopId, status: "pending", createdAt: at, attempts: 0, payload, receipt };
       try { await queueSale(queued); } catch { return setError("This device couldn't save the sale (storage is blocked or full). Write it down and enter it when you are back online."); }
@@ -192,6 +195,7 @@ export function PosTerminal({ initial }: { initial: PosCatalog }) {
               <span className="line-clamp-2 min-h-[2.5rem] text-sm font-medium">{p.name}</span>
               <span className="mt-1 text-sm font-semibold text-brand-600">{money(p.sellPrice)}</span>
               <span className={clsx("text-xs", p.stock === 0 ? "text-red-600" : p.stock <= 5 ? "text-amber-600" : "text-slate-500")}>{p.stock === 0 ? "Out of stock" : `${p.stock} in stock`}</span>
+              {(() => { const e = expiryStatus(p.expiry, catalog.expiryAlertDays ?? 30); return e.state === "expired" || e.state === "soon" ? <span className={clsx("mt-0.5 text-xs font-medium", e.state === "expired" ? "text-red-600" : "text-amber-600")}>{e.state === "expired" ? "EXPIRED · " : ""}{e.label}</span> : null; })()}
             </button>
           ))}
           {filtered.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-500">No products found.</p>}

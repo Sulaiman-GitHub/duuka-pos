@@ -61,7 +61,7 @@ export function TillStatus({ online, queue, catalog, signedOut, lastSync, onSync
 export function LocalReceiptModal({ refNo, receipt, catalog, at, onClose }: { refNo: string; receipt: LocalReceipt; catalog: PosCatalog; at: string; onClose: () => void }) {
   const data: ReceiptData = {
     shopName: catalog.shopName, address: catalog.address, phone: catalog.phone, footer: catalog.receiptFooter, widthMm: catalog.receiptWidth,
-    ref: refNo, refNote: "PROVISIONAL - final number follows", dateText: new Date(at).toLocaleString("en-GB", { timeZone: "Africa/Kampala" }), cashier: receipt.cashierName, customer: receipt.customerName,
+    ref: refNo, refNote: "PROVISIONAL - final number follows", dateText: new Date(at).toLocaleString("en-GB", { timeZone: "Africa/Kampala" }), cashier: receipt.cashierName, customer: receipt.customerName, customerPhone: receipt.customerPhone,
     lines: receipt.lines.map((l) => ({ ...l, lineTotal: l.quantity * l.unitPrice })),
     subtotal: receipt.subtotal, discount: receipt.discount, total: receipt.total, paymentLabel: receipt.methodLabel, paid: receipt.paid, change: receipt.change, currency: catalog.currency,
   };

@@ -5,6 +5,8 @@ import { Badge, Card, PageHeader, StatTile, td, tdNum, th } from "@/components/u
 import { BarList, TrendChart } from "@/components/charts";
 import { bestSellers, groupByGrain, lowStockCounts, saleFacts, sumFacts, net } from "@/lib/analytics";
 import { withShop } from "@/lib/tenant";
+import { expiryCounts } from "@/lib/expiry";
+import { getSettings } from "@/lib/settings";
 import { pageGuard } from "@/lib/guard";
 import { formatNumber, moneyFor } from "@/lib/money";
 import { addDays, startOfKampalaDay } from "@/lib/time";
@@ -23,12 +25,14 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const tomorrow = addDays(today, 1);
   const from = addDays(today, -(days - 1));
 
-  const [facts, stock, top, lowRows] = await withShop(user.shopId, (db) => Promise.all([
+  const alertDays = (await getSettings(user.shopId)).expiryAlertDays;
+  const [facts, stock, top, lowRows, exp] = await withShop(user.shopId, (db) => Promise.all([
     saleFacts(db, addDays(today, -Math.max(days - 1, 1)), tomorrow), // covers the range and yesterday
     lowStockCounts(db),
     bestSellers(db, from, tomorrow, 8),
     db.$queryRaw<{ id: string; name: string; sku: string; stock: number; minStock: number }[]>`
       SELECT id, name, sku, stock, "minStock" FROM "Product" WHERE "isActive" = true AND stock <= "minStock" ORDER BY stock ASC, name ASC LIMIT 8`,
+    expiryCounts(db, alertDays),
   ]));
 
   const inRange = facts.filter((f) => f.at >= from);
@@ -49,11 +53,16 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       <PageHeader title="Dashboard" subtitle="How the shop is doing" />
 
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Today</h2>
-      <div className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <StatTile label="Today's sales" value={money(t.net)} delta={{ pct, vs: "yesterday" }} />
         <StatTile label="Transactions" value={formatNumber(t.transactions)} sub={t.transactions ? `Avg ${money(Math.round(t.net / t.transactions))}` : "No sales yet today"} />
         <StatTile label="Gross profit" value={money(t.profit)} sub={t.net > 0 ? `${((t.profit / t.net) * 100).toFixed(0)}% margin` : undefined} />
         <StatTile label="Low-stock products" value={String(stock.low + stock.out)} tone={stock.out ? "red" : stock.low ? "amber" : undefined} sub={`${stock.out} out of stock`} />
+        {exp.tracked > 0 && (
+          <Link href={exp.expired ? "/inventory?filter=expired" : "/inventory?filter=expiring"} className="block rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500">
+            <StatTile label="Expiry alerts" value={String(exp.expired + exp.soon)} tone={exp.expired ? "red" : exp.soon ? "amber" : undefined} sub={`${exp.expired} expired · ${exp.soon} due in ${alertDays} days`} />
+          </Link>
+        )}
         <StatTile label="Total products" value={formatNumber(stock.total)} sub="Active products" />
       </div>
 

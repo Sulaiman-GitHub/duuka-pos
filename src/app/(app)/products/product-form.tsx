@@ -9,7 +9,7 @@ import type { ProductFormState } from "./actions";
 
 type Product = {
   id: string; name: string; sku: string; barcode: string | null; description: string | null; categoryId: string | null;
-  costPrice: number; sellPrice: number; stock: number; minStock: number; hasImage: boolean; imageUpdatedAt?: Date | null;
+  costPrice: number; sellPrice: number; stock: number; minStock: number; hasImage: boolean; imageUpdatedAt?: Date | null; expiryDate?: string | null;
 };
 
 export function ProductForm({
@@ -58,6 +58,9 @@ export function ProductForm({
         </Field>
         <Field label={product ? "Stock quantity" : "Opening stock"} error={fe.stock} hint={product ? "Changing this records a stock adjustment" : undefined}>
           <input name="stock" type="number" min={0} step={1} defaultValue={v("stock", product?.stock ?? 0)} required className={inputCls} />
+        </Field>
+        <Field label="Expiry date (optional)" error={fe.expiryDate} hint="For food, medicine and similar. Use the date the earliest stock you hold expires; you get a warning before it.">
+          <input name="expiryDate" type="date" defaultValue={v("expiryDate", product?.expiryDate ?? "")} className={inputCls} />
         </Field>
         <Field label="Minimum stock level" error={fe.minStock} hint="Low-stock alerts trigger at or below this">
           <input name="minStock" type="number" min={0} step={1} defaultValue={v("minStock", product?.minStock ?? 5)} required className={inputCls} />

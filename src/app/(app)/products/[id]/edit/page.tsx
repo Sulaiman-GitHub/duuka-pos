@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Card, PageHeader } from "@/components/ui";
 import { withShop } from "@/lib/tenant";
+import { kampalaDateString } from "@/lib/time";
 import { pageGuard } from "@/lib/guard";
 import { updateProduct } from "../../actions";
 import { ProductForm } from "../../product-form";
@@ -21,7 +22,7 @@ export default async function EditProductPage({ params }: PageProps<"/products/[
     <>
       <PageHeader title={`Edit ${p.name}`} subtitle={p.sku} />
       <Card className="max-w-3xl p-6">
-        <ProductForm action={updateProduct.bind(null, id)} categories={categories} product={{ ...p, hasImage }} />
+        <ProductForm action={updateProduct.bind(null, id)} categories={categories} product={{ ...p, hasImage, expiryDate: p.expiryDate ? kampalaDateString(p.expiryDate) : "" }} />
       </Card>
     </>
   );

@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auditNow } from "@/lib/audit";
+import { parseExpiryInput } from "@/lib/expiry";
+import { parseKampalaDate } from "@/lib/time";
 import { withShop, type Tx } from "@/lib/tenant";
 import { requirePermission } from "@/lib/session";
 
@@ -36,6 +38,7 @@ const schema = z.object({
   sellPrice: int("Selling price"),
   stock: int("Stock quantity"),
   minStock: int("Minimum stock"),
+  expiryDate: z.string().trim().refine((v) => v === "" || parseKampalaDate(v) !== null, "Enter a valid expiry date").optional(),
 });
 
 function parse(formData: FormData) {
@@ -97,7 +100,7 @@ export async function createProduct(_prev: ProductFormState, formData: FormData)
       const p = await tx.product.create({
         data: {
           name: d.name, sku: d.sku ?? newSku(), barcode: d.barcode, description: d.description, categoryId: d.categoryId,
-          costPrice: d.costPrice, sellPrice: d.sellPrice, stock: d.stock, minStock: d.minStock,
+          costPrice: d.costPrice, sellPrice: d.sellPrice, stock: d.stock, minStock: d.minStock, expiryDate: parseExpiryInput(d.expiryDate),
           ...(img && !("error" in img) ? { imageData: img.data, imageType: img.type, imageUpdatedAt: new Date() } : {}),
         },
       });
@@ -136,7 +139,7 @@ export async function updateProduct(id: string, _prev: ProductFormState, formDat
         where: { id },
         data: {
           name: d.name, sku: d.sku ?? undefined, barcode: d.barcode ?? null, description: d.description ?? null, categoryId: d.categoryId ?? null,
-          costPrice: d.costPrice, sellPrice: d.sellPrice, stock: d.stock, minStock: d.minStock,
+          costPrice: d.costPrice, sellPrice: d.sellPrice, stock: d.stock, minStock: d.minStock, expiryDate: parseExpiryInput(d.expiryDate),
           ...(img && !("error" in img) ? { imageData: img.data, imageType: img.type, imageUpdatedAt: new Date() } : removeImage ? { imageData: null, imageType: null, imageUpdatedAt: new Date() } : {}),
         },
       });
