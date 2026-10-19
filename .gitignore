@@ -42,3 +42,14 @@ next-env.d.ts
 /src/generated
 
 !.env.example
+
+# Local assistant / editor tooling (not part of the product)
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.claude/
+.cursor/
+.cursorrules
+.windsurf/
+.aider*
+.github/copilot-instructions.md
